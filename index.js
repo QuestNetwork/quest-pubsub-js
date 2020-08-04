@@ -1,3 +1,16 @@
+const axios = require('axios');
+
+
+function isInArray(value, array) {
+  return array.indexOf(value) > -1;
+}
+
+const v3only = require('./swarm.json').v3only;
+const combined = require('./swarm.json').combined;
+const DEVMODE = false;
+const secretKeyV2 = require('./swarm.json').reCaptchaRemote.secretKeyV2;
+const secretKeyV3 = require('./swarm.json').reCaptchaRemote.secretKeyV3;
+
 export class PubSub {
   constructor(name) {
     this.name = name;
@@ -26,7 +39,7 @@ export class PubSub {
   }
 
   channelParticipantList;
-  getChannelParticipants(channel){
+  getChannelParticipantList(channel){
     if(typeof(this.channelParticipantList[channel]['cList']) != 'undefined' && typeof(this.channelParticipantList[channel]['pList']) != 'undefined'){
       resolve(this.channelParticipantList[channel]);
     }
@@ -38,6 +51,97 @@ export class PubSub {
     }
     else{
       this.channelParticipantList[channel] = participantList;
+    }
+  }
+
+
+  stringToArrayBuffer(string,format = 'utf8'){
+  let encryptedSecretBuffer = string;
+
+  let encryptedSecretBinaryString = Buffer.from(encryptedSecretBuffer, format).toString('binary');
+  let encryptedSecretArrayBuffer = new Uint8Array(encryptedSecretBinaryString.length)
+   for (var i = 0; i < encryptedSecretBinaryString.length; i++) {
+     encryptedSecretArrayBuffer[i] = encryptedSecretBinaryString.charCodeAt(i)
+   }
+   return encryptedSecretArrayBuffer;
+  }
+
+
+   generateAesPassphrase(length) {
+    length = length - 36;
+
+     var result           = '';
+     var characters       = 'abcdefghijklmnopqrstuvwxyz0123456789-!#?';
+     var charactersLength = characters.length;
+     for ( var i = 0; i < length; i++ ) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+     }
+
+     //combine with uuid
+     result = uuidv4() + result;
+
+     return result;
+  }
+  aesEncryptB64(b64){
+    //string to array buffer
+    let wordArray = CryptoJS.lib.WordArray.create(stringToArrayBuffer(b64,'base64'));
+    CryptoJS.enc.parse(B64,CryptoJS.enc.base64);
+    return this.aesEncryptWordArray(wordArray);
+  }
+  aesEncryptUtf8(utf8){
+    //string to array buffer
+    let wordArray = CryptoJS.lib.WordArray.create(stringToArrayBuffer(utf8,'utf8'));
+    CryptoJS.enc.parse(B64,CryptoJS.enc.base64);
+    return this.aesEncryptWordArray(wordArray);
+  }
+  aesEncryptWordArray(wordArray){
+        let secret = this.generateAesPassphrase(256);
+        console.log('encryption start...');
+
+        // KEYS FROM SECRET
+        var key = CryptoJS.enc.Utf8.parse(secret.slice(0,64));         // Key: Use a WordArray-object instead of a UTF8-string / NodeJS-buffer
+        var iv = CryptoJS.enc.Utf8.parse(secret.substr(secret.length-16));
+        // ENCRYPT
+        let aesEncryptedB64 = CryptoJS.AES.encrypt(wordArray, key, {
+          iv: iv,
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7
+        }).toString();
+
+
+        // RESULT
+        console.log(aesEncryptedB64);
+        console.log('encryption complete!');
+        return { secret, aesEncryptedB64}
+  }
+  aesDecryptB64(encryptedQuestFileB64, questFileKey, format = 'utf8'){
+    let decryptedQuestFileWordArray;
+    try{
+      //aes decrypt this file
+      let key = CryptoJS.enc.Utf8.parse(questFileKey.slice(0,64));         // Key: Use a WordArray-object instead of a UTF8-string / NodeJS-buffer
+      let iv = CryptoJS.enc.Utf8.parse(questFileKey.substr(questFileKey.length-16));
+      decryptedQuestFileWordArray = CryptoJS.AES.decrypt(encryptedQuestFileB64, key, {
+         iv: iv,
+         mode: CryptoJS.mode.CBC,
+         padding: CryptoJS.pad.Pkcs7
+      });
+      if(decryptedQuestFileWordArray['sigBytes'] < 1){
+        throw('bad key! tell user!');
+      }
+    }
+    catch(error){
+      console.log(error);
+      throw('decryption failed');
+    }
+    if(format == 'hex'){
+      return decryptedQuestFileWordArray.toString(CryptoJS.enc.Hex);
+    }
+    else if(format == 'base64'){
+      return decryptedQuestFileWordArray.toString(CryptoJS.enc.Base64);
+    }
+    else if(format == 'utf8'){
+      decryptedQuestFileWordArray.toString(CryptoJS.enc.Hex);
+      return Buffer.from(decryptedQuestFileWordArray,'hex').toString('utf8');
     }
   }
 
@@ -121,7 +225,151 @@ export class PubSub {
     return this.keyChain[channel];
   }
 
+  addChannelParticipant(channel,channelPubKey, pubKey){
+    this.channelParticipantList[channel][cList] += ","+channelPubKey;
+    this.channelParticipantList[channel][pList] += ","+pubKey";
+  }
 
+
+  async verifyCaptchaResponse(action,v2,v3){
+    if(isInArray(action, combined)){
+        //verify v2
+        try{
+          let token = v2;
+          // console.log(token);
+          let reCaptchaRes = await axios.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV2+'&response='+token, {},
+          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" } } );
+          // console.log(reCaptchaRes);
+          reCaptchaRes = reCaptchaRes['data'];
+          // console.log(reCaptchaRes);
+          if(typeof(reCaptchaRes) == 'undefined' || reCaptchaRes == 'undefined' || typeof(reCaptchaRes['success']) == 'undefined' || !reCaptchaRes['success']){
+            return true;
+          }
+        }
+        catch(error){
+          console.log(error);
+          throw('reCaptcha');
+        }
+
+        //verify v3
+        try{
+          let token = v3;
+          // console.log(token);
+          let reCaptchaRes = await axios.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV3+'&response='+token, {},
+          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" } } );
+          // console.log(reCaptchaRes);
+          reCaptchaRes = reCaptchaRes['data'];
+          // console.log(reCaptchaRes);
+          if(typeof(reCaptchaRes) != 'undefined' && reCaptchaRes != 'undefined' && typeof(reCaptchaRes['success']) != 'undefined' && reCaptchaRes['success'] && reCaptchaRes['action'] == action && reCaptchaRes['score'] >= 0.9){
+            return  true;
+          }
+        }
+        catch(error){
+          console.log(error);
+          throw('reCaptcha');
+        }
+    }
+    else if(isInArray(component, v3only)){
+      //verify v3
+        try{
+          let token = req.body.reCaptchaV3;
+          // console.log(token);
+          let reCaptchaRes = await axios.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV3+'&response='+token, {},
+          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" } } );
+          console.log(reCaptchaRes);
+          reCaptchaRes = reCaptchaRes['data'];
+          // console.log(reCaptchaRes);
+          // DEVMODE && console.log(reCaptchaRes);
+          // DEVMODE && console.log(component);
+
+          if(typeof(reCaptchaRes) != 'undefined' && reCaptchaRes != 'undefined' && typeof(reCaptchaRes['success']) != 'undefined' && reCaptchaRes['success'] && reCaptchaRes['action'] == action && reCaptchaRes['score'] >= 0.9){
+            return  true;
+          }
+        }
+        catch(error){
+          DEVMODE && console.log(error);
+          throw('reCaptcha');
+        }
+    }
+
+    throw('reCaptcha');
+
+  }
+
+  async importKey(pemBinary){
+      let importedKey = await window.crypto.subtle.importKey(
+            "pkcs8", //can be "jwk" (public or private), "spki" (public only), or "pkcs8" (private only)
+            pemBinary,
+            {   //these are the algorithm options
+                name: "RSA-OAEP",
+                hash: {name: "SHA-512"}, //can be "SHA-1", "SHA-256", "SHA-384", or "SHA-512"
+            },
+            false, //whether the key is extractable (i.e. can be used in exportKey)
+            ["decrypt"] //"encrypt" or "wrapKey" for public key import or
+                        //"decrypt" or "unwrapKey" for private key imports
+      );
+      return importedKey;
+  }
+
+  async rsaFullEncrypt(plain,pubKey){
+       let rsaEncrypted;
+      try{
+        rsaEncrypted = await window.crypto.subtle.encrypt(
+        {
+          name: "RSA-OAEP"
+        },
+        pubKey,
+        Buffer.from(plain, 'utf-8')
+        );
+        // this.DEVMODE && console.log(rsaEncrypted);
+        return rsaEncrypted;
+      }
+      catch(error){
+        throw(error);
+      }
+  }
+
+  async rsaFullDecrypt(enc,pk){
+    let ik = await this.importKey(pk);
+    return await this.rsaDecrypt(ik,enc);
+  }
+
+  async rsaDecrypt(importedKey,encryptedSecretArrayBuffer ){
+    let decryptedMessage;
+   // try{
+     decryptedMessage = await window.crypto.subtle.decrypt(
+     {
+       name: "RSA-OAEP"
+     },
+     importedKey,
+     encryptedSecretArrayBuffer
+     );
+     DEVMODE && console.log(decryptedMessage);
+
+      var bufView = new Uint8Array(decryptedMessage);
+      var length = bufView.length;
+      var rsaDecrypted = '';
+      var addition = Math.pow(2,16)-1;
+
+    for(var i = 0;i<length;i+=addition){
+        if(i + addition > length){
+            addition = length - i;
+        }
+        rsaDecrypted += String.fromCharCode.apply(null, bufView.subarray(i,i+addition));
+    }
+    DEVMODE &&  console.log('decryptedMessage:'+rsaDecrypted);
+    return rsaDecrypted;
+
+  }
+
+  verifyEncryptedChallengeResponse(channel, encryptedResponse, channelPubKey){
+        //decrypt it with my private key
+        let response = await this.rsaFullDecrypt(encryptedResponse,this.getChannelKeyChain[channel]['channelPrivKey']);
+        response = JSON.parse(response);
+        //then test the captchas, this will throw if something isn't right
+        return await verifyCaptchaResponse("CHALLENGE_RESPONSE",response['v2'],response['v3']);
+        //add the guy to the list
+  }
 
   joinChannel(transport,channel,ipfsCID){
     return new Promise( async (resolve) => {
@@ -164,46 +412,54 @@ export class PubSub {
 
       this.subs[channel] = new Subject();
       transport.subscribe(channel, (message) => {
-          let data = JSON.parse(message.data.toString());
-          if(iamowner && data['type'] == 'sayHi' || (data['type'] == 'CHALLENGE_RESPONSE' && data['toCID'] == this.ipfsCID){
-            //user has completed the challenge, maybe we will add them to the channel
-            if(data['type'] == 'CHALLENGE_RESPONSE'){
-              let challengeMastered = this.testEncryptedChallengeResponse(data['response']);
-              if(!challengeMastered){
-                throw('bad challenge response');
-              }
-            }
-
+          let msgData = JSON.parse(message.data.toString());
+          if(iamowner && msgData['type'] == "sayHi"){
             //put together a message with all users whistleid timestamp, hash and sign message with pubkey
-            let { cList, pList } = await this.getChannelParticipants(channel);
-            if(this.isParticipant(cList, data['whistleID']){
-              this.publish({ type: "ownerSayHi", toCID: message.from, this.ownerSayHi({ toCID: message.from, toChannelPubKey: data['channelPubKey'], timestamp: timestamp, channelParticipantList: this.channelParticipantList[channel], this.channelKeyChain[channel]['pubKey'] ) });
+            let channelParticipantList = await this.getChannelParticipantList(channel);
+            if(this.isParticipant(cList, msgData['channelPubKey']){
+              let {secret, encryptedChannelParticipantList } = this.aesEncryptB64(Buffer.from(JSON.stringify({channelParticipantList: channelParticipantList }), 'utf8').toString('base64'));
+              let whistle = this.rsaFullEncrypt(secret, msgData['channelPubKey']);
+              this.publish({ type: "ownerSayHi", toChannelPubKey: msgData['channelPubKey'], message: encryptedChannelParticipantList, whistle: whistle );
             }
             else{
               //this is a new guy, maybe we should add them to the list? let's challenge them! you should customize this function!!!
-              this.publish({ type: "CHALLENGE", toCID: message.from, this.challenge({ toCID: message.from, toChannelPubKey: data['channelPubKey'], timestamp: timestamp, channelParticipantList: this.channelParticipantList[channel], this.channelKeyChain[channel]['pubKey'] ) });
+              this.publish({ type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'] });
             }
           }
-          else if(data['type'] == 'CHALLENGE' && data['toCID'] == this.ipfsCID){
-            //show captcha screen for user
-            resolve({action: 'CHALLENGE', timestamp: data['timestamp'] fromCID: message.from, encryptedPubKey: encryptedPubKey});
-            //owner is challenging us to join, we will complete the challenge and encrypt our public key for the owner with their publickey
+          if(iamowner && msgData['type'] == 'CHALLENGE_RESPONSE'){
+            //we received a challenge response as owner of this channel
+            let challengeMastered = this.verifyEncryptedChallengeResponse(channel, msgData['response'], msgData['channelPubKey']);
+            if(challengeMastered){
+              let channelParticipantList = await this.getChannelParticipantList(channel);
+              let {secret, encryptedChannelParticipantList } = this.aesEncryptB64(Buffer.from(JSON.stringify({ channelParticipantList: channelParticipantList }), 'utf8').toString('base64'));
+              let whistle = this.rsaFullEncrypt(secret, msgData['channelPubKey']);
+              this.publish({ type: "ownerSayHi", toChannelPubKey: msgData['channelPubKey'], message: encryptedChannelParticipantList, whistle: whistle );
+            }
           }
-          else if(data['type'] == 'ownerSayHi'){
+          else if(msgData['type'] == 'CHALLENGE' && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey']){
+            //owner is challenging us to join, we will complete the challenge and encrypt our public key for the owner with their publickey
+            //show captcha screen for user
+            this.subs[channel].next({ type: 'CHALLENGE' })
+          }
+          else if(msgData['type'] == 'ownerSayHi'){
           //WE RECEIVED A USER LIST
           try{
-              this.setChannelParticipantList(channel,  this.parseParticipantList(channel, data['message']));;
-              resolve({action: "APPROVED"});
+            // decrypt the whistle with our pubKey
+            let whistle = this.rsaFullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['channelPubKey'];
+            let channelInfo = this.aesDecryptB64(msgData['message'],whistle);
+            //decrypt the userlist
+              this.setChannelParticipantList(channel,  this.parseParticipantList(channel, channelInfo['channelParticipantList']));;
+              this.subs[channel].next({ type: 'ownerSayHi' });
             }
-            catch(err){
-              throw('bad list');
+            catch(error){
+              //fail silently
+              console.log(error);
             }
           }
-          else if(data['type'] == 'channelMessage' && this.isParticipant(this.channelParticipants[channel]['cList'], data['whistleID'])){
+          else if(msgData['type'] == 'channelMessage' && this.isParticipant(this.channelParticipants[channel]['cList'], msgData['channelPubKey'])){
             console.log('got message from ' + message.from)
-
             //decrypt this message with the users public key
-            let encrypted =  data['message'];
+            let encrypted =  msgData['message'];
             let decrypted = encrypted;
 
             let msg = {};
@@ -248,18 +504,6 @@ export class PubSub {
     });
   }
 
-  ownerSayHi(pubObj){
-    //pubObj = { toCID: message.from, toWhistleID: data['whistleID'], toTime: timestamp, channelParticipantList: this.channelParticipantList[channel], this.channelKeyChain[channel]['pubKey'] }
-    return sayHiResponse;
-  }
-
-  challenge(){
-
-  }
-
-  masterChallenge(){
-
-  }
 
 
 

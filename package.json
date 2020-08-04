@@ -17,5 +17,8 @@
   "devDependencies": {
     "rsync": "^0.6.1",
     "ava": "^3.10.1"
-  }
+  },
+  "contributors": [
+    "StationedInTheField <ask@stationedinthefield.com>"
+  ]
 }
