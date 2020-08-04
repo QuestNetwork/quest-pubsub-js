@@ -1,0 +1,21 @@
+{
+  "name": "@questnetwork/quest-pubsub-js",
+  "version": "0.9.1",
+  "private": false,
+  "license": "Apache-2.0",
+  "author": "QuestNetwork Inc.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuestNetwork/quest-pubsub.git"
+  },
+  "engines": {
+    "node": ">=10"
+  },
+  "dependencies": {
+    "axios": "^0.19.2"
+  },
+  "devDependencies": {
+    "rsync": "^0.6.1",
+    "ava": "^3.10.1"
+  }
+}
