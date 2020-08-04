@@ -1,23 +1,9 @@
-
-
 export class PubSub {
   constructor(name) {
     this.name = name;
   }
-
-
-  keyChain;
-  channelParticipantList;
-
-  addToKeyChain(channel, channelKeyChain){
-    this.keyChain[channel] = channelKeyChain;
-  }
-
-
-  getChannelKeyChain(channel){
-    return this.keyChain[channel];
-  }
-
+  ipfsCID;
+  subs;
   createChannel(channelInput){
     //generate keypair
     let channelKeyChain = this.generateChannelKeyChain();
@@ -35,21 +21,24 @@ export class PubSub {
     return plist.split(',');
   }
 
-  isParticipant(list, whistleIDorKey){
-    return ((list.indexOf(whistleIDorKey) > -1) ? true : false);
+  isParticipant(list, key){
+    return ((list.indexOf(key) > -1) ? true : false);
   }
 
-
-  channelParticipantList = {};
-  getChannelParticipants(topic){
-    if(typeof(this.channelParticipantList[topic]['wList']) != 'undefined' && typeof(this.channelParticipantList[topic]['pList']) != 'undefined'){
-      resolve(this.channelParticipantList[topic]);
+  channelParticipantList;
+  getChannelParticipants(channel){
+    if(typeof(this.channelParticipantList[channel]['cList']) != 'undefined' && typeof(this.channelParticipantList[channel]['pList']) != 'undefined'){
+      resolve(this.channelParticipantList[channel]);
     }
     throw('participants not saved');
   }
-
-  setChannelParticipants(topic, participants){
-    this.channelParticipantList[topic] = participants;
+  setChannelParticipantList(participantList, channel = "all"){
+    if(channel == 'all'){
+      this.channelParticipantList = participantList;
+    }
+    else{
+      this.channelParticipantList[channel] = participantList;
+    }
   }
 
 
@@ -83,8 +72,7 @@ export class PubSub {
     //generate channel priv pub and priv pub
   }
 
-  ipfsCID;
-  subs;
+
 
 
   sign(obj){
@@ -116,9 +104,26 @@ export class PubSub {
       encoded
     );
   }
+  keyChain;
 
 
-  joinChannel(transport,channel, whistleID, ipfsCID){
+  setChannelKeyChain(keychain, channel = "all"){
+    if(channel == "all"){
+        this.channelKeyChain = keychain;
+    }
+    else{
+      this.channelKeyChain[channel] = keychain;
+    }
+  }
+
+
+  getChannelKeyChain(channel){
+    return this.keyChain[channel];
+  }
+
+
+
+  joinChannel(transport,channel,ipfsCID){
     return new Promise( async (resolve) => {
       this.ipfsCID = ipfsCID;
       // TODO: if channel doesn't exist create it first and become owner?
@@ -128,10 +133,10 @@ export class PubSub {
 
       //Retrieve keys
       let channelKeyChain;
-      if(typeof(this.keyChain[topic]) == 'undefined'){
+      if(typeof(this.channelKeyChain[channel]) == 'undefined'){
           //generate keys for this channel
           channelKeyChain = this.generateChannelKeyChain();
-          addToKeyChain(channel, channelKeyChain);
+          this.setChannelKeyChain(channel, channelKeyChain);
       }
       else{
         //get keys from keychain object
@@ -143,22 +148,22 @@ export class PubSub {
       if(typeof(this.keyChain[channel]['channelPubKey']) != 'undefined'){
         amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey'])
         if(amiowner){
-          //this.publish({ channel: topic, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
+          //this.publish({ channel: channel, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
         }
       }
 
       if(!amiowner){
         //we are going to announce our join, share our pubkey-chain and request the current participant list
-        let pubObj = { fromCID: this.ipfsCID, channel: channel, type: "sayHi", whistleID: whistleID, timestamp: timestamp };
+        let pubObj = { fromCID: this.ipfsCID, channel: channel, type: "sayHi", channelPubKey: channelKeyChain['channelPubKey'], timestamp: timestamp };
         pubObj['sig'] = this.sign(channel,pubObj);
         transport.publish(pubObj);
       }
       else{
-        //  TODOO  this.publish({ type: "opaqueSayHi", to: message.from, QuestPubSub.ownerSayHi({ toCID: message.from, toWhistleID: data['whistleID'], toTime: timestamp, channelParticipantList: this.channelParticipantList[topic], this.channelKeyChain[topic]['pubKey'] ) });
+        //  TODOO  this.publish({ type: "opaqueSayHi", to: message.from, QuestPubSub.ownerSayHi({ toCID: message.from, toWhistleID: data['whistleID'], toTime: timestamp, channelParticipantList: this.channelParticipantList[channel], this.channelKeyChain[channel]['pubKey'] ) });
       }
 
       this.subs[channel] = new Subject();
-      transport.subscribe(topic, (message) => {
+      transport.subscribe(channel, (message) => {
           let data = JSON.parse(message.data.toString());
           if(iamowner && data['type'] == 'sayHi' || (data['type'] == 'CHALLENGE_RESPONSE' && data['toCID'] == this.ipfsCID){
             //user has completed the challenge, maybe we will add them to the channel
@@ -170,13 +175,13 @@ export class PubSub {
             }
 
             //put together a message with all users whistleid timestamp, hash and sign message with pubkey
-            let { wList, pList } = await this.getChannelParticipants(topic);
-            if(this.isParticipant(wList, data['whistleID']){
-              this.publish({ type: "ownerSayHi", toCID: message.from, this.ownerSayHi({ toCID: message.from, toWhistleID: data['whistleID'], timestamp: timestamp, channelParticipantList: this.channelParticipantList[topic], this.channelKeyChain[topic]['pubKey'] ) });
+            let { cList, pList } = await this.getChannelParticipants(channel);
+            if(this.isParticipant(cList, data['whistleID']){
+              this.publish({ type: "ownerSayHi", toCID: message.from, this.ownerSayHi({ toCID: message.from, toChannelPubKey: data['channelPubKey'], timestamp: timestamp, channelParticipantList: this.channelParticipantList[channel], this.channelKeyChain[channel]['pubKey'] ) });
             }
             else{
               //this is a new guy, maybe we should add them to the list? let's challenge them! you should customize this function!!!
-              this.publish({ type: "CHALLENGE", toCID: message.from, this.challenge({ toCID: message.from, toWhistleID: data['whistleID'], timestamp: timestamp, channelParticipantList: this.channelParticipantList[topic], this.channelKeyChain[topic]['pubKey'] ) });
+              this.publish({ type: "CHALLENGE", toCID: message.from, this.challenge({ toCID: message.from, toChannelPubKey: data['channelPubKey'], timestamp: timestamp, channelParticipantList: this.channelParticipantList[channel], this.channelKeyChain[channel]['pubKey'] ) });
             }
           }
           else if(data['type'] == 'CHALLENGE' && data['toCID'] == this.ipfsCID){
@@ -187,14 +192,14 @@ export class PubSub {
           else if(data['type'] == 'ownerSayHi'){
           //WE RECEIVED A USER LIST
           try{
-              this.setChannelParticipants(topic,  this.parseParticipantList(topic, data['message']));;
+              this.setChannelParticipantList(channel,  this.parseParticipantList(channel, data['message']));;
               resolve({action: "APPROVED"});
             }
             catch(err){
               throw('bad list');
             }
           }
-          else if(data['type'] == 'channelMessage' && this.isParticipant(this.channelParticipants[topic]['wList'], data['whistleID'])){
+          else if(data['type'] == 'channelMessage' && this.isParticipant(this.channelParticipants[channel]['cList'], data['whistleID'])){
             console.log('got message from ' + message.from)
 
             //decrypt this message with the users public key
@@ -205,7 +210,7 @@ export class PubSub {
             msg['message'] = decrypted;
             msg['type'] = "channelMessage";
             msg['from'] = message.from;
-            this.subs[topic].next(msg);
+            this.subs[channel].next(msg);
           }
       });
 
@@ -244,7 +249,7 @@ export class PubSub {
   }
 
   ownerSayHi(pubObj){
-    //pubObj = { toCID: message.from, toWhistleID: data['whistleID'], toTime: timestamp, channelParticipantList: this.channelParticipantList[topic], this.channelKeyChain[topic]['pubKey'] }
+    //pubObj = { toCID: message.from, toWhistleID: data['whistleID'], toTime: timestamp, channelParticipantList: this.channelParticipantList[channel], this.channelKeyChain[channel]['pubKey'] }
     return sayHiResponse;
   }
 

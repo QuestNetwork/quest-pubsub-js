@@ -6,7 +6,7 @@
   "author": "QuestNetwork Inc.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/QuestNetwork/quest-pubsub.git"
+    "url": "https://github.com/QuestNetwork/quest-pubsub-js.git"
   },
   "engines": {
     "node": ">=10"
