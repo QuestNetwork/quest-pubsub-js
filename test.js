@@ -4,8 +4,31 @@ export let GlobalPubSub = new PubSub();
 
 
 async function test(){
-  let test = await GlobalPubSub.createChannel('test');
-  console.log(test);
+  let channel = await GlobalPubSub.createChannel('test');
+  console.log(channel);
+  console.log(GlobalPubSub.getChannelKeyChain(channel));
+  let {secret, encryptedB64 } = GlobalPubSub.aesEncryptUtf8("Test Message",GlobalPubSub.getChannelKeyChain(channel)['pubKey']);
+  pubObj = {};
+  pubObj['message'] = Buffer.from(encryptedB64,'base64');
+  let date = new Date();
+  pubObj['timestamp'] =    date.time();
+  pubObj['channelPubKey'] = GlobalPubSub.getChannelKeyChain(channel)['channelPubKey'];
+  pubObj = GlobalPubSub.sign(pubObj);
+  let dataString = JSON.stringify(pubObj);
+  let data = Buffer.from(dataString,'utf8');
+
+  let msgData = JSON.parse(data.toString('utf8'));
+  let signatureVerified = await GlobalPubSub.verify(msgData);
+  if(msgData['type'] == 'channelMessage' && GlobalPubSub.isParticipant(GlobalPubSub.channelParticipants[channel]['cList'], msgData['channelPubKey']) && signatureVerified){
+   console.log('got message from ' + message.from)
+   //decrypt this message with the users public key
+   let msg = {};
+   msg['message'] = GlobalPubSub.aesDecryptB64(msgData['message'].toString('base64'),GlobalPubSub.channelParticipantList['pList'].split(',')[GlobalPubSub.channelParticipantList['cList'].split(',').indexOf(msgData['channelPubKey'])]);
+   msg['type'] = "channelMessage";
+   msg['from'] = message.from;
+   console.log(msg);
+  }
+
 }
 
 test();

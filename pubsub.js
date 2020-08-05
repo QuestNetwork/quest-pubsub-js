@@ -26,13 +26,13 @@ export class PubSub {
     this.channelKeyChain = {};
   }
 
-  createChannel(channelInput){
+  async createChannel(channelInput){
     //generate keypair
-    let channelKeyChain = this.generateChannelKeyChain();
+    let channelKeyChain = await this.generateChannelKeyChain();
     let democracy = "rep";
     let channel = channelInput+"-|-"+channelKeyChain['channelPubKey']+"-|-"+democracy;
-    this.setChannelKeyChain(channel, channelKeyChain);
-    this.setChannelParticipantList(channel, {cList: channelKeyChain['channelPubKey'], pList: channelKeyChain['pubKey']});
+    this.setChannelKeyChain(channelKeyChain,channel);
+    this.setChannelParticipantList({cList: channelKeyChain['channelPubKey'], pList: channelKeyChain['pubKey']},channel);
     return channel;
   }
 
@@ -74,6 +74,7 @@ export class PubSub {
         this.channelKeyChain = keychain;
     }
     else{
+      console.log('setting...'+keychain);
       this.channelKeyChain[channel] = keychain;
     }
   }
@@ -114,14 +115,12 @@ export class PubSub {
   }
   aesEncryptB64(b64, whistle = undefined){
     //string to array buffer
-    let wordArray = CryptoJS.lib.WordArray.create(stringToArrayBuffer(b64,'base64'));
-    CryptoJS.enc.parse(B64,CryptoJS.enc.base64);
+    let wordArray = CryptoJS.lib.WordArray.create(this.stringToArrayBuffer(b64,'base64'));
     return this.aesEncryptWordArray(wordArray,whistle);
   }
   aesEncryptUtf8(utf8, whistle = undefined){
     //string to array buffer
-    let wordArray = CryptoJS.lib.WordArray.create(stringToArrayBuffer(utf8,'utf8'));
-    CryptoJS.enc.parse(B64,CryptoJS.enc.base64);
+    let wordArray = CryptoJS.lib.WordArray.create(this.stringToArrayBuffer(utf8,'utf8'));
     return this.aesEncryptWordArray(wordArray,whistle);
   }
   aesEncryptWordArray(wordArray, whistle = undefined){
@@ -212,7 +211,7 @@ export class PubSub {
     let privKeyArrayBuffer = await WebCrypto.subtle.exportKey('pkcs8',oaepKeyPair.privateKey);
     let privKey = Buffer.from(pubKeyArrayBuffer).toString('hex');
     let channelKeyChain = { channelPubKey: channelPubKey, channelPrivKey: channelPrivKey, pubKey: pubKey, privKey: privKey };
-    console.log(channelKeyChain);
+    // console.log(channelKeyChain);
     return channelKeyChain;
 
     //generate channel priv pub and priv pub
@@ -271,7 +270,7 @@ export class PubSub {
           let token = v2;
           // console.log(token);
           let reCaptchaRes = await axios.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV2+'&response='+token, {},
-          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" } } );
+          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf8" } } );
           // console.log(reCaptchaRes);
           reCaptchaRes = reCaptchaRes['data'];
           // console.log(reCaptchaRes);
@@ -289,7 +288,7 @@ export class PubSub {
           let token = v3;
           // console.log(token);
           let reCaptchaRes = await axios.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV3+'&response='+token, {},
-          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" } } );
+          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf8" } } );
           // console.log(reCaptchaRes);
           reCaptchaRes = reCaptchaRes['data'];
           // console.log(reCaptchaRes);
@@ -308,7 +307,7 @@ export class PubSub {
           let token = req.body.reCaptchaV3;
           // console.log(token);
           let reCaptchaRes = await axios.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV3+'&response='+token, {},
-          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" } } );
+          { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf8" } } );
           console.log(reCaptchaRes);
           reCaptchaRes = reCaptchaRes['data'];
           // console.log(reCaptchaRes);
@@ -355,7 +354,7 @@ export class PubSub {
           name: "RSA-OAEP"
         },
         key,
-        Buffer.from(plain, 'utf-8')
+        Buffer.from(plain, 'utf8')
         );
         // this.DEVMODE && console.log(rsaEncrypted);
         return rsaEncrypted;
@@ -420,7 +419,7 @@ export class PubSub {
       if(typeof(this.channelKeyChain[channel]) == 'undefined'){
           //generate keys for this channel
           channelKeyChain = await this.generateChannelKeyChain();
-          this.setChannelKeyChain(channel, channelKeyChain);
+          this.setChannelKeyChain(channelKeyChain,channel);
       }
       else{
         //get keys from keychain object
@@ -448,7 +447,7 @@ export class PubSub {
 
       this.subs[channel] = new Subject();
       transport.subscribe(channel, async(message) => {
-          let msgData = JSON.parse(message.data.toString());
+          let msgData = JSON.parse(message.data.toString('utf8'));
           let signatureVerified = await this.verify(msgData);
           if(iamowner && msgData['type'] == "sayHi" && signatureVerified){
             //put together a message with all users whistleid timestamp, hash and sign message with pubkey
@@ -486,7 +485,7 @@ export class PubSub {
             let whistle = this.rsaFullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['channelPrivKey']);
             let channelInfo = this.aesDecryptB64(msgData['message'],whistle);
             //decrypt the userlist
-              this.setChannelParticipantList(channel,  this.parseParticipantList(channel, channelInfo['channelParticipantList']));;
+              this.setChannelParticipantList(this.parseParticipantList(channel, channelInfo['channelParticipantList']),channel);;
               this.subs[channel].next({ type: 'ownerSayHi' });
             }
             catch(error){
@@ -498,7 +497,7 @@ export class PubSub {
             console.log('got message from ' + message.from)
             //decrypt this message with the users public key
             let msg = {};
-            msg['message'] = this.aesDecryptB64(msgData['message'].toString('base64'),this.channelParticipantList['pList'].split(',')[this.channelParticipantList['cList'].split(',').indexOf(pubObj['channelPubKey'])]);
+            msg['message'] = this.aesDecryptB64(msgData['message'].toString('base64'),this.channelParticipantList['pList'].split(',')[this.channelParticipantList['cList'].split(',').indexOf(msgData['channelPubKey'])]);
             msg['type'] = "channelMessage";
             msg['from'] = message.from;
             this.subs[channel].next(msg);
