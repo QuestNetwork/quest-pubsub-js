@@ -1,7 +1,9 @@
 const axios = require('axios');
 const CryptoJS = require('crypto-js')
-const { generateKeyPairSync } = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+
+const { Crypto } = require("@peculiar/webcrypto");
+const WebCrypto = new Crypto();
 
 function isInArray(value, array) {
   return array.indexOf(value) > -1;
@@ -84,7 +86,6 @@ export class PubSub {
   }
 
 
-
   stringToArrayBuffer(string,format = 'utf8'){
   let encryptedSecretBuffer = string;
 
@@ -98,8 +99,7 @@ export class PubSub {
 
 
    generateAesPassphrase(length) {
-    length = length - 36;
-
+     length = length - 36;
      var result           = '';
      var characters       = 'abcdefghijklmnopqrstuvwxyz0123456789-!#?';
      var charactersLength = characters.length;
@@ -182,32 +182,38 @@ export class PubSub {
       return Buffer.from(decryptedQuestFileWordArray,'hex').toString('utf8');
     }
   }
-  generateChannelKeyChain(){
-    let keyPair = window.crypto.subtle.generateKey({
+  async generateChannelKeyChain(){
+    let keyPair =  await WebCrypto.subtle.generateKey({
       name: 'ECDSA',
-      namedCurve: 'P-512'
+      namedCurve: 'P-521'
     },
     true,
     ["sign","verify"]);
 
-    let channelPubKey = keyPair.publicKey;
-    let channelPrivKey = keyPair.privateKey;
 
-    let { pubKey, privKey } = generateKeyPairSync('rsa', {
-      modulusLength: 4096,
-      publicKeyEncoding: {
-        type: 'spki',
-        format: 'pem'
+    let channelPubKeyArrayBuffer =  await WebCrypto.subtle.exportKey('spki',keyPair.publicKey);
+    let channelPrivKeyArrayBuffer = await WebCrypto.subtle.exportKey('pkcs8',keyPair.privateKey);
+    let channelPubKey = Buffer.from(channelPubKeyArrayBuffer).toString('hex');
+    let channelPrivKey =  Buffer.from(channelPrivKeyArrayBuffer).toString('hex');
+
+    let oaepKeyPair = await WebCrypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 4096,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-512"
       },
-      privateKeyEncoding: {
-        type: 'pkcs8',
-        format: 'pem'
-        // cipher: 'aes-256-cbc',
-        // passphrase: passphrase
-      }
-    });
+      true,
+      ["encrypt", "decrypt"]
+    );
 
-    return { challelPubKey: channelPubKey, channelPrivKey: channelPrivKey, pubKey: pubKey, privKey: privKey };
+    let pubKeyArrayBuffer =  await WebCrypto.subtle.exportKey('spki',oaepKeyPair.publicKey);
+    let pubKey = Buffer.from(pubKeyArrayBuffer).toString('hex');
+    let privKeyArrayBuffer = await WebCrypto.subtle.exportKey('pkcs8',oaepKeyPair.privateKey);
+    let privKey = Buffer.from(pubKeyArrayBuffer).toString('hex');
+    let channelKeyChain = { channelPubKey: channelPubKey, channelPrivKey: channelPrivKey, pubKey: pubKey, privKey: privKey };
+    console.log(channelKeyChain);
+    return channelKeyChain;
 
     //generate channel priv pub and priv pub
   }
@@ -216,7 +222,7 @@ export class PubSub {
     let string = JSON.stringify(Obj);
     let enc = new TextEncoder();
     let encoded = enc(string);
-    obj['sig'] = await window.crypto.subtle.sign(
+    obj['sig'] = await WebCrypto.subtle.sign(
      {
        name: "ECDSA",
        hash: {name: "SHA-512"},
@@ -233,7 +239,7 @@ export class PubSub {
     delete obj['sig'];
     let enc = new TextEncoder();
     let encoded = enc(JSON.stringify(obj));
-    return await window.crypto.subtle.verify(
+    return await WebCrypto.subtle.verify(
       {
         name: "ECDSA",
         hash: {name: "SHA-512"},
@@ -311,7 +317,7 @@ export class PubSub {
   }
 
   async importKey(pemBinary){
-      let importedKey = await window.crypto.subtle.importKey(
+      let importedKey = await WebCrypto.subtle.importKey(
             "pkcs8", //can be "jwk" (public or private), "spki" (public only), or "pkcs8" (private only)
             pemBinary,
             {   //these are the algorithm options
@@ -328,7 +334,7 @@ export class PubSub {
   async rsaFullEncrypt(plain,pubKey){
        let rsaEncrypted;
       try{
-        rsaEncrypted = await window.crypto.subtle.encrypt(
+        rsaEncrypted = await WebCrypto.subtle.encrypt(
         {
           name: "RSA-OAEP"
         },
@@ -351,7 +357,7 @@ export class PubSub {
   async rsaDecrypt(importedKey,encryptedSecretArrayBuffer ){
     let decryptedMessage;
    // try{
-     decryptedMessage = await window.crypto.subtle.decrypt(
+     decryptedMessage = await WebCrypto.subtle.decrypt(
      {
        name: "RSA-OAEP"
      },
@@ -396,7 +402,7 @@ export class PubSub {
       let channelKeyChain;
       if(typeof(this.channelKeyChain[channel]) == 'undefined'){
           //generate keys for this channel
-          channelKeyChain = this.generateChannelKeyChain();
+          channelKeyChain = await this.generateChannelKeyChain();
           this.setChannelKeyChain(channel, channelKeyChain);
       }
       else{

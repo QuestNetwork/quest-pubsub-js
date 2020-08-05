@@ -23,6 +23,8 @@ NPM doesn't work for Quest Network Swarm Projects, because they have to load dat
 which needs to be provided locally for security reasons. Instead copy or symlink the main folder to your swarm app or package on
 the build step and define the dependency as local.
 
+If you feel like you really really need to, you can `npm run start`, which will compile and run thee test.js file.
+
 ## Installation & Usage
 
 Please use our [quest-cli](https://github.com/QuestNetwork/quest-cli) to test and build the package.
