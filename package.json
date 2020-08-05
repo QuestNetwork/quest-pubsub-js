@@ -12,7 +12,9 @@
     "node": ">=10"
   },
   "dependencies": {
-    "axios": "^0.19.2"
+    "axios": "^0.19.2",
+    "crypto-js": "^4.0.0",
+    "uuid": "^8.2.0"
   },
   "devDependencies": {
     "rsync": "^0.6.1",
