@@ -218,7 +218,18 @@ export class PubSub {
     //generate channel priv pub and priv pub
   }
 
+  bufferToArrayBuffer(buf) {
+      var ab = new ArrayBuffer(buf.length);
+      var view = new Uint8Array(ab);
+      for (var i = 0; i < buf.length; ++i) {
+          view[i] = buf[i];
+      }
+      return ab;
+  }
+
   async sign(obj){
+    let keyBuf = Buffer.from(this.getChannelKeyChain(obj['channel'])['channelPrivKey'],'hex');
+    let key = WebCrypto.subtle.importKey('pkcs8',this.bufferToArrayBuffer(keyBuf));
     let string = JSON.stringify(Obj);
     let enc = new TextEncoder();
     let encoded = enc(string);
@@ -227,13 +238,15 @@ export class PubSub {
        name: "ECDSA",
        hash: {name: "SHA-512"},
      },
-     this.getChannelKeyChain(obj['channel'])['channelPrivKey'],
+     key,
      encoded
     );
     return obj;
   }
 
   async verify(obj){
+    let keyBuf =  Buffer.from(obj['channelPubKey'],'hex');
+    let key = WebCrypto.subtle.importKey('spki',this.bufferToArrayBuffer(keyBuf));
     let sig = obj['sig'];
     //remove
     delete obj['sig'];
@@ -315,30 +328,33 @@ export class PubSub {
     throw('reCaptcha');
 
   }
-
-  async importKey(pemBinary){
-      let importedKey = await WebCrypto.subtle.importKey(
-            "pkcs8", //can be "jwk" (public or private), "spki" (public only), or "pkcs8" (private only)
-            pemBinary,
-            {   //these are the algorithm options
-                name: "RSA-OAEP",
-                hash: {name: "SHA-512"}, //can be "SHA-1", "SHA-256", "SHA-384", or "SHA-512"
-            },
-            false, //whether the key is extractable (i.e. can be used in exportKey)
-            ["decrypt"] //"encrypt" or "wrapKey" for public key import or
-                        //"decrypt" or "unwrapKey" for private key imports
-      );
-      return importedKey;
-  }
+  //
+  // async importKey(pemBinary){
+  //     let importedKey = await WebCrypto.subtle.importKey(
+  //           "pkcs8", //can be "jwk" (public or private), "spki" (public only), or "pkcs8" (private only)
+  //           pemBinary,
+  //           {   //these are the algorithm options
+  //               name: "RSA-OAEP",
+  //               hash: {name: "SHA-512"}, //can be "SHA-1", "SHA-256", "SHA-384", or "SHA-512"
+  //           },
+  //           false, //whether the key is extractable (i.e. can be used in exportKey)
+  //           ["decrypt"] //"encrypt" or "wrapKey" for public key import or
+  //                       //"decrypt" or "unwrapKey" for private key imports
+  //     );
+  //     return importedKey;
+  // }
 
   async rsaFullEncrypt(plain,pubKey){
+    let keyBuf = Buffer.from(pubKey,'hex');
+    let key = WebCrypto.subtle.importKey('spki',this.bufferToArrayBuffer(keyBuf));
+
        let rsaEncrypted;
       try{
         rsaEncrypted = await WebCrypto.subtle.encrypt(
         {
           name: "RSA-OAEP"
         },
-        pubKey,
+        key,
         Buffer.from(plain, 'utf-8')
         );
         // this.DEVMODE && console.log(rsaEncrypted);
@@ -350,7 +366,8 @@ export class PubSub {
   }
 
   async rsaFullDecrypt(enc,pk){
-    let ik = await this.importKey(pk);
+    let keyBuf = Buffer.from(pk,'hex');
+    let ik = WebCrypto.subtle.importKey('pkcs8',this.bufferToArrayBuffer(keyBuf));
     return await this.rsaDecrypt(ik,enc);
   }
 
