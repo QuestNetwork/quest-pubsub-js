@@ -12,7 +12,7 @@ async function test(){
   // console.log(aesEncryptedB64);
   pubObj['message'] = Buffer.from(aesEncryptedB64,'base64');
   let date = new Date();
-  pubObj['timestamp'] =    date.time();
+  pubObj['timestamp'] =  date.getTime();
   pubObj['channelPubKey'] = GlobalPubSub.getChannelKeyChain(channel)['channelPubKey'];
   pubObj = GlobalPubSub.sign(pubObj);
   let dataString = JSON.stringify(pubObj);

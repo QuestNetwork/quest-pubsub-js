@@ -519,7 +519,7 @@ export class PubSub {
 
       }
       let date = new Date();
-      pubObj['timestamp'] =    date.time();
+      pubObj['timestamp'] =    date.getTime();
       pubObj['channelPubKey'] = this.getChannelKeyChain(pubObj['channel'])['channelPubKey'];
       pubObj = this.sign(pubObj);
       let dataString = JSON.stringify(pubObj);
