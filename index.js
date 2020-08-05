@@ -12,17 +12,24 @@ const secretKeyV2 = require('./swarm.json').reCaptchaRemote.secretKeyV2;
 const secretKeyV3 = require('./swarm.json').reCaptchaRemote.secretKeyV3;
 
 export class PubSub {
-  constructor(name) {
-    this.name = name;
+
+
+  constructor(channel = "all") {
+    //in the future only handle one channel per instanciated class
+    this.ipfsCID = "";
+    this.subs = {};
+    this.channelParticipantList = {};
+    this.channelKeyChain = {};
+
+
   }
-  ipfsCID;
-  subs;
+
   createChannel(channelInput){
     //generate keypair
     let channelKeyChain = this.generateChannelKeyChain();
     let democracy = "rep";
     let channel = channelInput+"-|-"+channelKeyChain['channelPubKey']+"-|-"+democracy;
-    addToKeyChain(channel, channelKeyChain);
+    this.setChannelKeyChain(channel, channelKeyChain);
     return channel;
   }
 
@@ -33,12 +40,9 @@ export class PubSub {
   parseParticipantList(plist){
     return plist.split(',');
   }
-
   isParticipant(list, key){
     return ((list.indexOf(key) > -1) ? true : false);
   }
-
-  channelParticipantList;
   getChannelParticipantList(channel){
     if(typeof(this.channelParticipantList[channel]['cList']) != 'undefined' && typeof(this.channelParticipantList[channel]['pList']) != 'undefined'){
       resolve(this.channelParticipantList[channel]);
@@ -53,6 +57,24 @@ export class PubSub {
       this.channelParticipantList[channel] = participantList;
     }
   }
+  addChannelParticipant(channel,channelPubKey, pubKey){
+    this.channelParticipantList[channel][cList] += ","+channelPubKey;
+    this.channelParticipantList[channel][pList] += ","+pubKey;
+  }
+
+
+  setChannelKeyChain(keychain, channel = "all"){
+    if(channel == "all"){
+        this.channelKeyChain = keychain;
+    }
+    else{
+      this.channelKeyChain[channel] = keychain;
+    }
+  }
+  getChannelKeyChain(channel){
+    return this.keyChain[channel];
+  }
+
 
 
   stringToArrayBuffer(string,format = 'utf8'){
@@ -82,20 +104,27 @@ export class PubSub {
 
      return result;
   }
-  aesEncryptB64(b64){
+  aesEncryptB64(b64, whistle = undefined){
     //string to array buffer
     let wordArray = CryptoJS.lib.WordArray.create(stringToArrayBuffer(b64,'base64'));
     CryptoJS.enc.parse(B64,CryptoJS.enc.base64);
-    return this.aesEncryptWordArray(wordArray);
+    return this.aesEncryptWordArray(wordArray,whistle);
   }
-  aesEncryptUtf8(utf8){
+  aesEncryptUtf8(utf8, whistle = undefined){
     //string to array buffer
     let wordArray = CryptoJS.lib.WordArray.create(stringToArrayBuffer(utf8,'utf8'));
     CryptoJS.enc.parse(B64,CryptoJS.enc.base64);
-    return this.aesEncryptWordArray(wordArray);
+    return this.aesEncryptWordArray(wordArray,whistle);
   }
-  aesEncryptWordArray(wordArray){
-        let secret = this.generateAesPassphrase(256);
+  aesEncryptWordArray(wordArray, whistle = undefined){
+    let secret;
+    if(typeof(whistle) == 'undefined'){
+        secret = this.generateAesPassphrase(256);
+    }
+    else{
+      secret = whistle;
+    }
+
         console.log('encryption start...');
 
         // KEYS FROM SECRET
@@ -112,7 +141,8 @@ export class PubSub {
         // RESULT
         console.log(aesEncryptedB64);
         console.log('encryption complete!');
-        return { secret, aesEncryptedB64}
+
+          return { secret, aesEncryptedB64}
   }
   aesDecryptB64(encryptedQuestFileB64, questFileKey, format = 'utf8'){
     let decryptedQuestFileWordArray;
@@ -144,8 +174,6 @@ export class PubSub {
       return Buffer.from(decryptedQuestFileWordArray,'hex').toString('utf8');
     }
   }
-
-
   generateChannelKeyChain(){
     let keyPair = WebCrypto.subtle.generateKey({
       name: 'ECDSA',
@@ -176,12 +204,10 @@ export class PubSub {
     //generate channel priv pub and priv pub
   }
 
-
-
-
-  sign(obj){
+  async sign(obj){
     let string = JSON.stringify(Obj);
-    let encoded = new TextEncoder();
+    let enc = new TextEncoder();
+    let encoded = enc(string);
     return await window.crypto.subtle.sign(
      {
        name: "ECDSA",
@@ -192,7 +218,7 @@ export class PubSub {
     );
   }
 
-  verify(obj, publicKey){
+  async verify(obj, publicKey){
     let sig = obj['sig'];
     //remove
     delete obj['sig'];
@@ -207,27 +233,6 @@ export class PubSub {
       sig,
       encoded
     );
-  }
-  keyChain;
-
-
-  setChannelKeyChain(keychain, channel = "all"){
-    if(channel == "all"){
-        this.channelKeyChain = keychain;
-    }
-    else{
-      this.channelKeyChain[channel] = keychain;
-    }
-  }
-
-
-  getChannelKeyChain(channel){
-    return this.keyChain[channel];
-  }
-
-  addChannelParticipant(channel,channelPubKey, pubKey){
-    this.channelParticipantList[channel][cList] += ","+channelPubKey;
-    this.channelParticipantList[channel][pList] += ","+pubKey";
   }
 
 
@@ -362,9 +367,10 @@ export class PubSub {
 
   }
 
-  verifyEncryptedChallengeResponse(channel, encryptedResponse, channelPubKey){
+  verifyEncryptedChallengeResponse(channel, encryptedWhistle,encryptedResponse){
         //decrypt it with my private key
-        let response = await this.rsaFullDecrypt(encryptedResponse,this.getChannelKeyChain[channel]['channelPrivKey']);
+        let whistle = await this.rsaFullDecrypt(encryptedWhistle,this.getChannelKeyChain[channel]['channelPrivKey']);
+        let response = await this.aesDecryptB64(encryptedResponse,whistle);
         response = JSON.parse(response);
         //then test the captchas, this will throw if something isn't right
         return await verifyCaptchaResponse("CHALLENGE_RESPONSE",response['v2'],response['v3']);
@@ -396,6 +402,7 @@ export class PubSub {
       if(typeof(this.keyChain[channel]['channelPubKey']) != 'undefined'){
         amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey'])
         if(amiowner){
+
           //this.publish({ channel: channel, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
         }
       }
@@ -403,7 +410,7 @@ export class PubSub {
       if(!amiowner){
         //we are going to announce our join, share our pubkey-chain and request the current participant list
         let pubObj = { fromCID: this.ipfsCID, channel: channel, type: "sayHi", channelPubKey: channelKeyChain['channelPubKey'], timestamp: timestamp };
-        pubObj['sig'] = this.sign(channel,pubObj);
+        pubObj['sig'] = await this.sign(channel,pubObj);
         transport.publish(pubObj);
       }
       else{
@@ -413,7 +420,7 @@ export class PubSub {
       this.subs[channel] = new Subject();
       transport.subscribe(channel, (message) => {
           let msgData = JSON.parse(message.data.toString());
-          if(iamowner && msgData['type'] == "sayHi"){
+          if(iamowner && msgData['type'] == "sayHi" && await verify(msgData, msgData['channelPubKey']){
             //put together a message with all users whistleid timestamp, hash and sign message with pubkey
             let channelParticipantList = await this.getChannelParticipantList(channel);
             if(this.isParticipant(cList, msgData['channelPubKey']){
@@ -425,10 +432,11 @@ export class PubSub {
               //this is a new guy, maybe we should add them to the list? let's challenge them! you should customize this function!!!
               this.publish({ type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'] });
             }
+
           }
           if(iamowner && msgData['type'] == 'CHALLENGE_RESPONSE'){
             //we received a challenge response as owner of this channel
-            let challengeMastered = this.verifyEncryptedChallengeResponse(channel, msgData['response'], msgData['channelPubKey']);
+            let challengeMastered = this.verifyEncryptedChallengeResponse(channel,msgData['whistle'], msgData['response'], msgData['channelPubKey']);
             if(challengeMastered){
               let channelParticipantList = await this.getChannelParticipantList(channel);
               let {secret, encryptedChannelParticipantList } = this.aesEncryptB64(Buffer.from(JSON.stringify({ channelParticipantList: channelParticipantList }), 'utf8').toString('base64'));
@@ -459,11 +467,8 @@ export class PubSub {
           else if(msgData['type'] == 'channelMessage' && this.isParticipant(this.channelParticipants[channel]['cList'], msgData['channelPubKey'])){
             console.log('got message from ' + message.from)
             //decrypt this message with the users public key
-            let encrypted =  msgData['message'];
-            let decrypted = encrypted;
-
             let msg = {};
-            msg['message'] = decrypted;
+            msg['message'] = this.aesDecryptB64(msgData['message'].toString('base64'),this.channelParticipantList['pList'][this.channelParticipantList['cList'].split(',').indexOf(pubObj['channelPubKey'])]);
             msg['type'] = "channelMessage";
             msg['from'] = message.from;
             this.subs[channel].next(msg);
@@ -480,7 +485,9 @@ export class PubSub {
       if(pubObj['type'] == 'channelMessage'){
 
         //encrypt message
-        let message = "RSA PRIVATE KEY ENCRYPTED MESSAGE";
+        let {secret, encryptedB64 } = this.aesEncryptUtf8(pubObj['message'],pubObj['channel'])['pubKey']);
+        // pubObj['whistle'] = this.rsaFullEncrypt(secret,this.getChannelKeyChain();
+        pubObj['message'] = Buffer.from(encryptedB64,'base64');
 
       }
 
