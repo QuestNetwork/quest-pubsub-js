@@ -144,12 +144,11 @@ export class PubSub {
           padding: CryptoJS.pad.Pkcs7
         }).toString();
 
-
         // RESULT
         console.log(aesEncryptedB64);
         console.log('encryption complete!');
 
-          return { secret, aesEncryptedB64}
+          return { secret, aesEncryptedB64 }
   }
   aesDecryptB64(encryptedQuestFileB64, questFileKey, format = 'utf8'){
     let decryptedQuestFileWordArray;
@@ -514,9 +513,9 @@ export class PubSub {
       if(pubObj['type'] == 'channelMessage'){
 
         //encrypt message
-        let {secret, encryptedB64 } = this.aesEncryptUtf8(pubObj['message'],this.getChannelKeyChain(pubObj['channel'])['pubKey']);
+        let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message'],this.getChannelKeyChain(pubObj['channel'])['pubKey']);
         // pubObj['whistle'] = this.rsaFullEncrypt(secret,this.getChannelKeyChain();
-        pubObj['message'] = Buffer.from(encryptedB64,'base64');
+        pubObj['message'] = Buffer.from(aesEncryptedB64,'base64');
 
       }
       let date = new Date();

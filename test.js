@@ -7,9 +7,10 @@ async function test(){
   let channel = await GlobalPubSub.createChannel('test');
   console.log(channel);
   console.log(GlobalPubSub.getChannelKeyChain(channel));
-  let {secret, encryptedB64 } = GlobalPubSub.aesEncryptUtf8("Test Message",GlobalPubSub.getChannelKeyChain(channel)['pubKey']);
-  pubObj = {};
-  pubObj['message'] = Buffer.from(encryptedB64,'base64');
+  let {secret, aesEncryptedB64 } = GlobalPubSub.aesEncryptUtf8("Test Message",GlobalPubSub.getChannelKeyChain(channel)['pubKey']);
+  let pubObj = {};
+  // console.log(aesEncryptedB64);
+  pubObj['message'] = Buffer.from(aesEncryptedB64,'base64');
   let date = new Date();
   pubObj['timestamp'] =    date.time();
   pubObj['channelPubKey'] = GlobalPubSub.getChannelKeyChain(channel)['channelPubKey'];
