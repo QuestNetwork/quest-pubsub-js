@@ -618,7 +618,6 @@ export class PubSub {
           resolve(true);
         }
       });
-
     } catch(err) {
       console.log('Failed to publish message', err)
       throw(err);
