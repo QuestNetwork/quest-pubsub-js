@@ -30,7 +30,7 @@ export class PubSub {
     //generate keypair
     let channelKeyChain = await this.generateChannelKeyChain({owner:true});
     let democracy = "rep";
-    let channel = channelInput+"-|-"+channelKeyChain['channelPubKey']+"-||-"+channelKeyChain['ownerPubKey']+"-||-"+democracy;
+    let channel = channelInput+"-|-"+channelKeyChain['channelPubKey']+"-|-"+channelKeyChain['ownerPubKey']+"-|-"+democracy;
     this.setChannelKeyChain(channelKeyChain,channel);
     this.setChannelParticipantList({cList: channelKeyChain['channelPubKey'], pList: channelKeyChain['pubKey']},channel);
     return channel;
@@ -44,7 +44,7 @@ export class PubSub {
   }
 
   getOwnerPubKey(channel){
-    return channel.split("-||-")[1];
+    return channel.split("-|-")[2];
   }
 
 
