@@ -1,4 +1,5 @@
 # Quest PubSub JS
+>Quantum Scare: Currently Quest Network PubSub uses elliptic curve cryptopgraphy for signatures, but we are already looking at quantum safe algorithms.
 
 ## Lead Maintainer
 

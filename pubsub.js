@@ -17,20 +17,20 @@ const secretKeyV3 = require('./swarm.json').reCaptchaRemote.secretKeyV3;
 
 export class PubSub {
 
-
   constructor(channel = "all") {
     //in the future only handle one channel per instanciated class
     this.ipfsCID = "";
     this.subs = {};
     this.channelParticipantList = {};
     this.channelKeyChain = {};
+    this.splitter = "-----";
   }
 
   async createChannel(channelInput){
     //generate keypair
     let channelKeyChain = await this.generateChannelKeyChain({owner:true});
     let democracy = "rep";
-    let channel = channelInput+"-|-"+channelKeyChain['channelPubKey']+"-|-"+channelKeyChain['ownerPubKey']+"-|-"+democracy;
+    let channel = channelInput+this.splitter+channelKeyChain['channelPubKey']+this.splitter+channelKeyChain['ownerPubKey']+this.splitter+democracy;
     this.setChannelKeyChain(channelKeyChain,channel);
     this.setChannelParticipantList({cList: channelKeyChain['channelPubKey'], pList: channelKeyChain['pubKey']},channel);
     return channel;
@@ -40,14 +40,12 @@ export class PubSub {
     return ((channel.indexOf(pubKey) > -1) ? true : false);
   }
   getOwnerChannelPubKey(channel){
-    return channel.split("-|-")[1];
+    return channel.split(this.splitter)[1];
   }
 
   getOwnerPubKey(channel){
-    return channel.split("-|-")[2];
+    return channel.split(this.splitter)[2];
   }
-
-
 
   parseParticipantList(plist){
     return plist.split(',');
