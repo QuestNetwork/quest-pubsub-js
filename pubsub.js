@@ -2,8 +2,16 @@ const axios = require('axios');
 const CryptoJS = require('crypto-js')
 const { v4: uuidv4 } = require('uuid');
 
-const { Crypto } = require("@peculiar/webcrypto");
-const WebCrypto = new Crypto();
+
+//provisional: https://github.com/PeculiarVentures/webcrypto/issues/19
+let WebCrypto;
+if(typeof(window.crypto) != 'undefined'){
+  WebCrypto = window.crypto;
+}
+else{
+  let { Crypto } = require("@peculiar/webcrypto");
+  WebCrypto = new Crypto();
+}
 
 function isInArray(value, array) {
   return array.indexOf(value) > -1;
