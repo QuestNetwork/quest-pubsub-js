@@ -1,7 +1,7 @@
 const axios = require('axios');
 const CryptoJS = require('crypto-js')
 const { v4: uuidv4 } = require('uuid');
-
+import { Subject } from "rxjs";
 
 //provisional: https://github.com/PeculiarVentures/webcrypto/issues/19
 let WebCrypto;
@@ -31,6 +31,8 @@ export class PubSub {
     this.subs = {};
     this.channelParticipantList = {};
     this.channelKeyChain = {};
+    this.channelNameList = [];
+
     this.splitter = "-----";
   }
 
@@ -38,10 +40,10 @@ export class PubSub {
     //generate keypair
     let channelKeyChain = await this.generateChannelKeyChain({owner:true});
     let democracy = "rep";
-    let channel = channelInput+this.splitter+channelKeyChain['channelPubKey']+this.splitter+channelKeyChain['ownerPubKey']+this.splitter+democracy;
+    let channelName = channelInput+this.splitter+channelKeyChain['channelPubKey']+this.splitter+channelKeyChain['ownerPubKey']+this.splitter+democracy;
     this.setChannelKeyChain(channelKeyChain,channel);
     this.setChannelParticipantList({cList: channelKeyChain['channelPubKey'], pList: channelKeyChain['pubKey']},channel);
-    return channel;
+    return channelName;
   }
 
   ownerCheck(channel, pubKey){
@@ -71,6 +73,7 @@ export class PubSub {
     }
     throw('participants not saved');
   }
+
   setChannelParticipantList(participantList, channel = "all"){
     if(channel == 'all'){
       this.channelParticipantList = participantList;
@@ -79,11 +82,16 @@ export class PubSub {
       this.channelParticipantList[channel] = participantList;
     }
   }
+  getChannelNameList(){
+    return this.channelNameList;
+  }
   addChannelParticipant(channel,channelPubKey, pubKey){
     this.channelParticipantList[channel]['cList'] += ","+channelPubKey;
     this.channelParticipantList[channel]['pList'] += ","+pubKey;
   }
-
+  addChannelName(channelName){
+    this.channelNameList.push(channelName);
+  }
 
   setChannelKeyChain(keychain, channel = "all"){
     if(channel == "all"){
@@ -99,9 +107,13 @@ export class PubSub {
     if(channel == 'all'){
       return this.channelKeyChain;
     }
+
+    if(typeof(this.channelKeyChain[channel]) == 'undefined'){
+      throw('not set');
+    }
+
     return this.channelKeyChain[channel];
   }
-
 
   stringToArrayBuffer(string,format = 'utf8'){
   let encryptedSecretBuffer = string;
@@ -114,8 +126,7 @@ export class PubSub {
    return encryptedSecretArrayBuffer;
   }
 
-
-   generateAesPassphrase(length) {
+  generateAesPassphrase(length) {
      length = length - 36;
      var result           = '';
      var characters       = 'abcdefghijklmnopqrstuvwxyz0123456789-!#?';
@@ -131,6 +142,7 @@ export class PubSub {
   }
   aesEncryptB64(b64, whistle = undefined){
     //string to array buffer
+    console.log('about to create word array');
     let wordArray = CryptoJS.lib.WordArray.create(this.stringToArrayBuffer(b64,'base64'));
     return this.aesEncryptWordArray(wordArray,whistle);
   }
@@ -249,10 +261,13 @@ export class PubSub {
       ["encrypt", "decrypt"]
     );
 
-    let ownerPubKeyArrayBuffer =  await WebCrypto.subtle.exportKey('spki',oaepOwnerKeyPair.publicKey);
-    channelKeyChain['ownerPubKey'] = Buffer.from(pubKeyArrayBuffer).toString('hex');
-    let ownerPrivKeyArrayBuffer = await WebCrypto.subtle.exportKey('pkcs8',oaepOwnerKeyPair.privateKey);
-    channelKeyChain['ownerPrivKey'] = Buffer.from(privKeyArrayBuffer).toString('hex');
+    if(config['owner']){
+      let ownerPubKeyArrayBuffer =  await WebCrypto.subtle.exportKey('spki',oaepOwnerKeyPair.publicKey);
+      channelKeyChain['ownerPubKey'] = Buffer.from(pubKeyArrayBuffer).toString('hex');
+      let ownerPrivKeyArrayBuffer = await WebCrypto.subtle.exportKey('pkcs8',oaepOwnerKeyPair.privateKey);
+      channelKeyChain['ownerPrivKey'] = Buffer.from(privKeyArrayBuffer).toString('hex');
+    }
+
 
     // console.log(channelKeyChain);
     return channelKeyChain;
@@ -495,32 +510,41 @@ export class PubSub {
       this.ipfsCID = ipfsCID;
       // TODO: if channel doesn't exist create it first and become owner?
 
-
+      console.log('joining channel: ',channel);
       //Retrieve keys
       let channelKeyChain;
       if(typeof(this.channelKeyChain[channel]) == 'undefined'){
+        try{
+          console.log('getting keychain!');
+          channelKeyChain =  this.getChannelKeyChain(channel);
+        }catch(e){
+          //keychain is not set
+          console.log('no key chain!');
+        }
+      }
+      console.log('here');
+      let amiowner = false;
+      if(typeof(this.channelKeyChain[channel]) != 'undefined' && typeof(this.channelKeyChain[channel]['channelPubKey']) != 'undefined'){
+        amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey'])
+      }
+      else if(typeof(this.channelKeyChain[channel]) == 'undefined'){
           //generate keys for this channel
+          console.log('no key chain, generating new keys');
           channelKeyChain = await this.generateChannelKeyChain();
           this.setChannelKeyChain(channelKeyChain,channel);
       }
+      console.log('here');
+      if(amiowner){
+        console.log('i am the owner!');
+        // TO DO this.publish({ channel: channel, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
+      }
       else{
-        //get keys from keychain object
-        channelKeyChain =  this.getChannelKeyChain(channel);
-      }
-
-      //check if we have this channel in our keychain already
-      let amiowner = false;
-      if(typeof(this.channelKeyChain[channel]['channelPubKey']) != 'undefined'){
-        amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey'])
-        if(amiowner){
-          // TO DO this.publish({ channel: channel, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
-        }
-      }
-      if(!amiowner){
         //we are going to announce our join, share our pubkey-chain and request the current participant list
         let pubObj = { channel: channel, type: "sayHi", toChannelPubKey: this.getOwnerChannelPubKey(channel), channelPubKey: channelKeyChain['channelPubKey'] };
         transport.publish(pubObj);
       }
+
+      console.log('about to sub!');
       this.subs[channel] = new Subject();
       transport.subscribe(channel, async(message) => {
           let msgData = JSON.parse(message.data.toString('utf8'));

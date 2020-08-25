@@ -16,10 +16,11 @@
     "start": "npm run build && node dist/test.js"
   },
   "dependencies": {
+    "@peculiar/webcrypto": "1.1.1",
     "axios": "^0.19.2",
     "crypto-js": "^4.0.0",
-    "uuid": "^8.2.0",
-    "@peculiar/webcrypto": "1.1.1"
+    "rxjs": "^6.6.2",
+    "uuid": "^8.2.0"
   },
   "devDependencies": {
     "ava": "^3.10.1",
