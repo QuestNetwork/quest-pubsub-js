@@ -43,6 +43,7 @@ export class PubSub {
     let channelName = channelInput+this.splitter+channelKeyChain['channelPubKey']+this.splitter+channelKeyChain['ownerPubKey']+this.splitter+democracy;
     this.setChannelKeyChain(channelKeyChain,channel);
     this.setChannelParticipantList({cList: channelKeyChain['channelPubKey'], pList: channelKeyChain['pubKey']},channel);
+    this.addChannelName(channelName);
     return channelName;
   }
 
@@ -85,6 +86,11 @@ export class PubSub {
   getChannelNameList(){
     return this.channelNameList;
   }
+
+  setChannelNameList(list){
+     this.channelNameList = list;
+  }
+
   addChannelParticipant(channel,channelPubKey, pubKey){
     this.channelParticipantList[channel]['cList'] += ","+channelPubKey;
     this.channelParticipantList[channel]['pList'] += ","+pubKey;
