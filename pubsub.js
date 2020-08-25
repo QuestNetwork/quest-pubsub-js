@@ -108,18 +108,19 @@ export class PubSub {
       this.channelKeyChain[channel] = keychain;
     }
   }
-
   getChannelKeyChain(channel = 'all'){
     console.log('getting channel keychain');
 
     if(channel == 'all'){
       return this.channelKeyChain;
     }
-    if(typeof(this.channelKeyChain[channel]) == 'undefined'){
+
+    console.log('Testing channelName in channelKeyChain');
+    if(typeof(this.getChannelKeyChain(channel)) == 'undefined'){
       throw('not set');
     }
-
-    return this.channelKeyChain[channel];
+    console.log('Returning KeyChain...');
+    return this.getChannelKeyChain(channel);
   }
 
   stringToArrayBuffer(string,format = 'utf8'){
@@ -520,7 +521,7 @@ export class PubSub {
       console.log('joining channel: ',channel);
       //Retrieve keys
       let channelKeyChain;
-      console.log('getting channelkeychain...')
+      console.log('getting channel keychain...')
       if(typeof(this.getChannelKeyChain(channel)) == 'undefined'){
         try{
           console.log('getting keychain!');
@@ -530,7 +531,7 @@ export class PubSub {
           console.log('no key chain!');
         }
       }
-      console.log('here');
+      console.log('keychain start complete...');
       let amiowner = false;
       if(typeof(this.getChannelKeyChain(channel)) != 'undefined' && typeof(this.getChannelKeyChain(channel)['channelPubKey']) != 'undefined'){
         amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey'])
