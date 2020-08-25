@@ -511,7 +511,7 @@ export class PubSub {
 
 
 
-  joinChannel(transport,channel,ipfsCID){
+   joinChannel(transport,channel,ipfsCID){
     return new Promise( async (resolve) => {
       this.ipfsCID = ipfsCID;
       // TODO: if channel doesn't exist create it first and become owner?
@@ -530,7 +530,7 @@ export class PubSub {
       }
       console.log('here');
       let amiowner = false;
-      if(typeof(this.channelKeyChain[channel]) != 'undefined' && typeof(this.channelKeyChain[channel]['channelPubKey']) != 'undefined'){
+      if(typeof(this.getChannelKeyChain(channel)) != 'undefined' && typeof(this.getChannelKeyChain(channel)['channelPubKey']) != 'undefined'){
         amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey'])
       }
       else if(typeof(this.channelKeyChain[channel]) == 'undefined'){
@@ -568,7 +568,7 @@ export class PubSub {
           }
           if(iamowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified){
             //we received a challenge response as owner of this channel
-            let whistle = await this.rsaFullDecrypt(msgData['whistle'],this.getChannelKeyChain[channel]['ownerPrivKey']);
+            let whistle = await this.rsaFullDecrypt(msgData['whistle'],this.getChannelKeyChain(channel)['ownerPrivKey']);
             let response = await this.aesDecryptHex(msgData['response'],whistle);
             response = JSON.parse(response);
             let challengeMastered = await this.verifyChallengeResponse(channel, response);
@@ -583,7 +583,7 @@ export class PubSub {
           }
           else if(msgData['type'] == 'CHALLENGE' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
             //owner is challenging us to join, we will complete the challenge and encrypt our public key for the owner with their publickey
-            //show captcha screen for user
+            //show captcha screen foer user
             this.subs[channel].next({ type: 'CHALLENGE' })
           }
           else if(msgData['type'] == 'ownerSayHi' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
@@ -595,6 +595,7 @@ export class PubSub {
             //decrypt the userlist
               this.setChannelParticipantList(channel,channelInfo['channelParticipantList']);
               this.subs[channel].next({ type: 'ownerSayHi' });
+              resolve(true);
             }
             catch(error){
               //fail silently
