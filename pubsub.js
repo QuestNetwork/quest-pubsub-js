@@ -110,10 +110,11 @@ export class PubSub {
   }
 
   getChannelKeyChain(channel = 'all'){
+    console.log('getting channel keychain');
+
     if(channel == 'all'){
       return this.channelKeyChain;
     }
-
     if(typeof(this.channelKeyChain[channel]) == 'undefined'){
       throw('not set');
     }
@@ -519,7 +520,8 @@ export class PubSub {
       console.log('joining channel: ',channel);
       //Retrieve keys
       let channelKeyChain;
-      if(typeof(this.channelKeyChain[channel]) == 'undefined'){
+      console.log('getting channelkeychain...')
+      if(typeof(this.getChannelKeyChain(channel)) == 'undefined'){
         try{
           console.log('getting keychain!');
           channelKeyChain =  this.getChannelKeyChain(channel);
