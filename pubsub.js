@@ -41,8 +41,8 @@ export class PubSub {
     let channelKeyChain = await this.generateChannelKeyChain({owner:true});
     let democracy = "rep";
     let channelName = channelInput+this.splitter+channelKeyChain['channelPubKey']+this.splitter+channelKeyChain['ownerPubKey']+this.splitter+democracy;
-    this.setChannelKeyChain(channelKeyChain,channel);
-    this.setChannelParticipantList({cList: channelKeyChain['channelPubKey'], pList: channelKeyChain['pubKey']},channel);
+    this.setChannelKeyChain(channelKeyChain,channelName);
+    this.setChannelParticipantList({cList: channelKeyChain['channelPubKey'], pList: channelKeyChain['pubKey']},channelName);
     this.addChannelName(channelName);
     return channelName;
   }
@@ -646,6 +646,7 @@ export class PubSub {
       pubObj['channelPubKey'] = this.getChannelKeyChain(pubObj['channel'])['channelPubKey'];
       pubObj = this.sign(pubObj);
       let dataString = JSON.stringify(pubObj);
+      console.log('dataString:',dataString);
       let data = Buffer.from(dataString,'utf8');
       transport.publish(pubObj['channel'], data, (err) => {
         if (err) {
