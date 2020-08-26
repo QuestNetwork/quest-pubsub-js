@@ -123,12 +123,12 @@ export class PubSub {
     }
 
 
-    console.log('Retrieving channel channelKeyChain...');
     if(channel == 'all'){
+      console.log('Retrieving all channelKeyChains...');
       return this.channelKeyChain;
     }
 
-    console.log('Returning KeyChain...');
+    console.log('Retrieving channelKeyChain [0x200:'+channel+']...');
     return this.channelKeyChain[channel];
   }
 
@@ -572,9 +572,11 @@ export class PubSub {
       this.subs[channel] = new Subject();
       console.log('Subscribing... [0x0200:'+channel+']');
       transport.subscribe(channel, async(message) => {
+        console.log('New message!',message);
           let msgData = JSON.parse(message.data.toString('utf8'));
+          console.log(msgData);
           let signatureVerified = await this.verify(msgData);
-          if(iamowner && msgData['type'] == "sayHi" && signatureVerified){
+          if(amiowner && msgData['type'] == "sayHi" && signatureVerified){
             //put together a message with all users whistleid timestamp, hash and sign message with pubkey
             if(this.isParticipant(channel, msgData['channelPubKey'])){
               this.publish({ type: "ownerSayHi", toChannelPubKey: msgData['channelPubKey'], message: JSON.stringify({channelParticipantList: this.getChannelParticipantList(channel) })});
@@ -585,7 +587,7 @@ export class PubSub {
             }
 
           }
-          if(iamowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified){
+          if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified){
             //we received a challenge response as owner of this channel
             let whistle = await this.rsaFullDecrypt(msgData['whistle'],this.getChannelKeyChain(channel)['ownerPrivKey']);
             let response = await this.aesDecryptHex(msgData['response'],whistle);
@@ -624,33 +626,38 @@ export class PubSub {
             console.log('got message from ' + message.from)
             //decrypt this message with the users public key
             let msg = {};
-            msg['message'] = GlobalPubSub.aesDecryptHex(msgData['message'],this.getPubKey(msgData['channelPubKey']));
+            msg['message'] = this.aesDecryptHex(msgData['message'],this.getPubKey(msgData['channelPubKey']));
             msg['type'] = "CHANNEL_MESSAGE";
             msg['from'] = message.from;
             this.subs[channel].next(msg);
           }
       });
       console.log('Join Complete [0x0200:'+channel+']');
-
+      resolve(true);
     });
   }
 
   async publish(transport, pubObj){
     return new Promise( async(resolve) => {
      try {
+      console.log('Publishing:');
+      console.log(pubObj);
       if(pubObj['type'] == 'CHANNEL_MESSAGE'){
         //encrypt message
+        console.log('Encrypting CHANNEL_MESSAGE...');
         let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message'],this.getChannelKeyChain(pubObj['channel'])['pubKey']);
         pubObj['message'] = Buffer.from(aesEncryptedB64,'base64');
       }
       else if(pubObj['type'] == 'CHALLENGE_RESPONSE'){
         //encrypt response
+        console.log('Encrypting CHALLENGE_RESPONSE...');
         let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(JSON.stringify(pubObj['response']));
         pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
         pubObj['response'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
       }
       else if(pubObj['type'] == 'PRIVATE_MESSAGE' || pubObj['type'] == 'ownerSayHi'){
         //encrypt response
+        console.log('Encrypting PRIVATE_MESSAGE...');
         let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message']);
         pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getPubKey(pubObj['toChannelPubKey']));
         pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
@@ -663,19 +670,29 @@ export class PubSub {
       let date = new Date();
       pubObj['timestamp'] = date.getTime();
       pubObj['channelPubKey'] = this.getChannelKeyChain(pubObj['channel'])['channelPubKey'];
-      pubObj = this.sign(pubObj);
+      pubObj = await this.sign(pubObj);
+      console.log('Signed Message Object:',pubObj);
       let dataString = JSON.stringify(pubObj);
-      console.log('dataString:',dataString);
+      console.log('Signed Message DataString:',dataString);
       let data = Buffer.from(dataString,'utf8');
-      transport.publish(pubObj['channel'], data, (err) => {
-        if (err) {
-          console.error('error publishing: ', err)
-          throw(err);
-        } else {
-          console.log('successfully published message')
-          resolve(true);
-        }
-      });
+      console.log('Publishing message... [0x200]');
+      let transportPublishError = false;
+      try{
+        await transport.publish(pubObj['channel'], data);
+        console.log('Successfully published message');
+        resolve(true);
+
+      }
+      catch(e){
+        console.error('Failed to publish message', e)
+        throw(err);
+
+      }
+      // , (err) => {
+      //     console.error('Error publishing: ', err)
+      // }
+
+
     } catch(err) {
       console.log('Failed to publish message', err)
       throw(err);
