@@ -98,12 +98,12 @@ export class PubSub {
 
   setChannelKeyChain(keychain, channel = "all"){
     if(channel == "all"){
-      console.log('Replacing Global Keychain For All Channels...');
+      console.log('Replacing Global Keychain For All Channels...',keychain);
         this.channelKeyChain = keychain;
     }
     else{
       console.log('Adding Channel Keychain...');
-      // console.log('setting...',keychain);
+      // console.loging('setting...',keychain);
       this.channelKeyChain[channel] = keychain;
     }
   }
