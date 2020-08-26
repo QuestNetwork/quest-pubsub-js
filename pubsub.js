@@ -614,7 +614,6 @@ export class PubSub {
             //decrypt the userlist
               this.setChannelParticipantList(channel,channelInfo['channelParticipantList']);
               this.subs[channel].next({ type: 'ownerSayHi' });
-              resolve(true);
             }
             catch(error){
               //fail silently
@@ -631,7 +630,7 @@ export class PubSub {
             this.subs[channel].next(msg);
           }
       });
-
+      console.log('Join Complete [0x0200:'+channel+']');
 
     });
   }
