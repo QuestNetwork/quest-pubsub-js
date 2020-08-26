@@ -65,13 +65,16 @@ export class PubSub {
     return ((list.indexOf(channelPublicKey) > -1) ? true : false);
   }
   getChannelParticipantList(channel = 'all'){
+    if(typeof(this.channelParticipantList) == 'undefined'){
+      throw('not set');
+    }
     if(channel == 'all'){
       return this.channelParticipantList;
     }
     if(typeof(this.channelParticipantList[channel]['cList']) != 'undefined' && typeof(this.channelParticipantList[channel]['pList']) != 'undefined'){
       return this.channelParticipantList[channel];
     }
-    throw('participants not saved');
+    throw('not set');
   }
   setChannelParticipantList(participantList, channel = "all"){
     if(channel == 'all'){
@@ -195,7 +198,7 @@ export class PubSub {
   }
   aesDecryptHex(enc,secret, format = 'utf8'){
     let msgB64 = Buffer.from(enc,'hex').toString('base64');
-    return aesDecryptB64(msgB64, secret, format);
+    return this.aesDecryptB64(msgB64, secret, format);
   }
   aesDecryptB64(encryptedQuestFileB64, secret, format = 'utf8'){
     let decryptedQuestFileWordArray;
@@ -515,9 +518,10 @@ export class PubSub {
   }
 
 
-  async getPubKey(channelPubKey){
-    let array = GlobalPubSub.getChannelParticipantList(msgData['channel'])['pList'].split(',');
-    let index = GlobalPubSub.getChannelParticipantList(msgData['channel'])['cList'].split(',').indexOf(channelPubKey);
+  async getPubKeyFromChannelPubKey(channel,channelPubKey){
+    let channelParticipantList = this.getChannelParticipantList(channel);
+    let array = channelParticipantList['pList'].split(',');
+    let index = channelParticipantList['cList'].split(',').indexOf(channelPubKey);
     return array[index];
   }
 
@@ -626,7 +630,7 @@ export class PubSub {
             console.log('got message from ' + message.from)
             //decrypt this message with the users public key
             let msg = {};
-            msg['message'] = this.aesDecryptHex(msgData['message'],this.getPubKey(msgData['channelPubKey']));
+            msg['message'] = this.aesDecryptHex(msgData['message'],this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']));
             msg['type'] = "CHANNEL_MESSAGE";
             msg['from'] = message.from;
             this.subs[channel].next(msg);
@@ -659,7 +663,7 @@ export class PubSub {
         //encrypt response
         console.log('Encrypting PRIVATE_MESSAGE...');
         let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message']);
-        pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getPubKey(pubObj['toChannelPubKey']));
+        pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getChannelParticipantList(pubObj['toChannelPubKey']));
         pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
       }
       else if(pubObj['type'] == "sayHi"){
