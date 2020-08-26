@@ -73,7 +73,6 @@ export class PubSub {
     }
     throw('participants not saved');
   }
-
   setChannelParticipantList(participantList, channel = "all"){
     if(channel == 'all'){
       this.channelParticipantList = participantList;
@@ -82,17 +81,16 @@ export class PubSub {
       this.channelParticipantList[channel] = participantList;
     }
   }
-  getChannelNameList(){
-    return this.channelNameList;
-  }
-
-  setChannelNameList(list){
-     this.channelNameList = list;
-  }
-
   addChannelParticipant(channel,channelPubKey, pubKey){
     this.channelParticipantList[channel]['cList'] += ","+channelPubKey;
     this.channelParticipantList[channel]['pList'] += ","+pubKey;
+  }
+
+  getChannelNameList(){
+    return this.channelNameList;
+  }
+  setChannelNameList(list){
+     this.channelNameList = list;
   }
   addChannelName(channelName){
     this.channelNameList.push(channelName);
@@ -100,22 +98,26 @@ export class PubSub {
 
   setChannelKeyChain(keychain, channel = "all"){
     if(channel == "all"){
+      console.log('Replacing Global Keychain For All Channels...');
         this.channelKeyChain = keychain;
     }
     else{
+      console.log('Adding Channel Keychain...');
       // console.log('setting...',keychain);
       this.channelKeyChain[channel] = keychain;
     }
   }
   getChannelKeyChain(channel = 'all'){
-    this.channelKeyChain = {};
-    console.log('Testing channelName in channelKeyChain');
+    console.log('Testing type of channelKeyChain...');
     console.log(JSON.stringify(this.channelKeyChain));
-    if(JSON.stringify(this.channelKeyChain) == '{}'){
+    if(JSON.stringify(this.channelKeyChain) == '{}' || (channel != 'all' && JSON.stringify(this.channelKeyChain) != '{}' && JSON.stringify(this.channelKeyChain[channel]) == 'undefined')){
       throw('not set');
     }
+    else if(channel == 'all' && JSON.stringify(this.channelKeyChain) == 'undefined'){
+      throw('undefined')
+    }
 
-    console.log('getting channel keychain');
+    console.log('Retrieving channel channelKeyChain...');
     if(channel == 'all'){
       return this.channelKeyChain;
     }
@@ -220,6 +222,7 @@ export class PubSub {
     }
     // return "123";
   }
+
   async generateChannelKeyChain(config = {owner:false}){
     let keyPair =  await WebCrypto.subtle.generateKey({
       name: 'ECDSA',
@@ -522,30 +525,31 @@ export class PubSub {
       console.log('joining channel: ',channel);
       //Retrieve keys
       let channelKeyChain;
-      console.log('Getting channel keychain... [0x0200]')
+      console.log('Getting channel keychain... [0x0200:'+channel+']')
       try{
-        console.log('Calling getChannelKeyChain...');
+        console.log('Calling getChannelKeyChain... [0x0200:'+channel+']');
         channelKeyChain =  this.getChannelKeyChain(channel);
       }catch(e){
+        if(e == 'undefined'){
+          throw('fatal error - channelkeychain undefined [0x0200:'+channel+']');
+        }
+
         //keychain is not set
-        console.log('no key chain!');
+        console.log('No key chain found. Generating new keys... [0x0200:'+channel+']');
+        channelKeyChain = await this.generateChannelKeyChain();
+        this.setChannelKeyChain(channelKeyChain,channel);
       }
 
-      console.log('keychain start complete...');
+      console.log('Keychain start complete... [0x0200:'+channel+']');
       let amiowner = false;
-      if(typeof(this.getChannelKeyChain(channel)) != 'undefined' && typeof(this.getChannelKeyChain(channel)['channelPubKey']) != 'undefined'){
+      console.log('Testing owner status... [0x0200:'+channel+']');
+      if(typeof(channelKeyChain(channel)['channelPubKey']) != 'undefined'){
         amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey'])
       }
-      else if(typeof(this.channelKeyChain[channel]) == 'undefined'){
-          //generate keys for this channel
-          console.log('no key chain, generating new keys');
-          channelKeyChain = await this.generateChannelKeyChain();
-          this.setChannelKeyChain(channelKeyChain,channel);
-      }
-      console.log('here');
+
       if(amiowner){
-        console.log('i am the owner!');
-        // TO DO this.publish({ channel: channel, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
+        console.log('We are the owner! [0x0200:'+channel+']');
+        // TO DO this.publish({ channel: [0x0200:'+channel+']'channel, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
       }
       else{
         //we are going to announce our join, share our pubkey-chain and request the current participant list
@@ -553,7 +557,7 @@ export class PubSub {
         transport.publish(pubObj);
       }
 
-      console.log('about to sub!');
+      console.log('About to sub... [0x0200:'+channel+']');
       this.subs[channel] = new Subject();
       transport.subscribe(channel, async(message) => {
           let msgData = JSON.parse(message.data.toString('utf8'));
