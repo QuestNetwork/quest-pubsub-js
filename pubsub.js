@@ -630,7 +630,10 @@ export class PubSub {
             console.log('got message from ' + message.from)
             //decrypt this message with the users public key
             let msg = {};
-            msg['message'] = this.aesDecryptHex(msgData['message'],this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']));
+            let pubkey = this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']);
+            console.log('Encrypted Message':,msgData['message']);
+            console.log('PubKey: ',pubkey);
+            msg['message'] = this.aesDecryptHex(msgData['message'],pubkey));
             msg['type'] = "CHANNEL_MESSAGE";
             msg['from'] = message.from;
             this.subs[channel].next(msg);
@@ -650,7 +653,7 @@ export class PubSub {
         //encrypt message
         console.log('Encrypting CHANNEL_MESSAGE...');
         let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message'],this.getChannelKeyChain(pubObj['channel'])['pubKey']);
-        pubObj['message'] = Buffer.from(aesEncryptedB64,'base64');
+        pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
       }
       else if(pubObj['type'] == 'CHALLENGE_RESPONSE'){
         //encrypt response
