@@ -109,7 +109,12 @@ export class PubSub {
   }
   getChannelKeyChain(channel = 'all'){
     console.log('Testing type of channelKeyChain...');
-    console.log(JSON.stringify(this.channelKeyChain));
+    if(channel == 'all'){
+      console.log(JSON.stringify(this.channelKeyChain));
+    }
+    else{
+      console.log(JSON.stringify(this.channelKeyChain[channel]));
+    }
     if(typeof(this.channelKeyChain) == 'undefined'){
       throw('undefined')
     }
@@ -549,7 +554,7 @@ export class PubSub {
         return false;
       }
       if(typeof(channelKeyChain['channelPubKey']) != 'undefined'){
-        // amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey']);
+         amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey']);
       }
 
       if(amiowner){
@@ -563,8 +568,9 @@ export class PubSub {
         transport.publish(pubObj);
       }
 
-      console.log('About to sub... [0x0200:'+channel+']');
+      console.log('Fetching Subscription... [0x0200:'+channel+']');
       this.subs[channel] = new Subject();
+      console.log('Subscribing... [0x0200:'+channel+']');
       transport.subscribe(channel, async(message) => {
           let msgData = JSON.parse(message.data.toString('utf8'));
           let signatureVerified = await this.verify(msgData);
