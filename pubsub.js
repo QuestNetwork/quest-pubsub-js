@@ -544,7 +544,7 @@ export class PubSub {
       console.log('Keychain start complete... [0x0200:'+channel+']');
       let amiowner = false;
       console.log('Testing owner status... [0x0200:'+channel+']');
-      if(typeof(channelKeyChain == 'undefined'){
+      if(typeof(channelKeyChain) == 'undefined'){
         console.log('E:KEYCHAIN_CORRUPT');
         return false;
       }
