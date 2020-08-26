@@ -523,9 +523,9 @@ export class PubSub {
       this.ipfsCID = ipfsCID;
       // TODO: if channel doesn't exist create it first and become owner?
 
-      console.log('joining channel: ',channel);
+      console.log('joining channel...');
       //Retrieve keys
-      let channelKeyChain;
+      let channelKeyChain = {};
       console.log('Getting channel keychain... [0x0200:'+channel+']')
       try{
         console.log('Calling getChannelKeyChain... [0x0200:'+channel+']');
@@ -544,8 +544,12 @@ export class PubSub {
       console.log('Keychain start complete... [0x0200:'+channel+']');
       let amiowner = false;
       console.log('Testing owner status... [0x0200:'+channel+']');
-      if(typeof(channelKeyChain(channel)['channelPubKey']) != 'undefined'){
-        amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey'])
+      if(typeof(channelKeyChain == 'undefined'){
+        console.log('E:KEYCHAIN_CORRUPT');
+        return false;
+      }
+      if(typeof(channelKeyChain['channelPubKey']) != 'undefined'){
+        // amiowner = this.ownerCheck(channel,channelKeyChain['channelPubKey']);
       }
 
       if(amiowner){
@@ -553,6 +557,7 @@ export class PubSub {
         // TO DO this.publish({ channel: [0x0200:'+channel+']'channel, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
       }
       else{
+        console.log('We are not the owner! [0x0200:'+channel+']');
         //we are going to announce our join, share our pubkey-chain and request the current participant list
         let pubObj = { channel: channel, type: "sayHi", toChannelPubKey: this.getOwnerChannelPubKey(channel), channelPubKey: channelKeyChain['channelPubKey'] };
         transport.publish(pubObj);
