@@ -110,12 +110,13 @@ export class PubSub {
   getChannelKeyChain(channel = 'all'){
     console.log('Testing type of channelKeyChain...');
     console.log(JSON.stringify(this.channelKeyChain));
-    if(JSON.stringify(this.channelKeyChain) == '{}' || (channel != 'all' && JSON.stringify(this.channelKeyChain) != '{}' && JSON.stringify(this.channelKeyChain[channel]) == 'undefined')){
-      throw('not set');
-    }
-    else if(channel == 'all' && JSON.stringify(this.channelKeyChain) == 'undefined'){
+    if(typeof(this.channelKeyChain) == 'undefined'){
       throw('undefined')
     }
+    else if(JSON.stringify(this.channelKeyChain) == '{}' || (channel != 'all' && JSON.stringify(this.channelKeyChain) != '{}' && typeof(this.channelKeyChain[channel]) == 'undefined')){
+      throw('not set');
+    }
+
 
     console.log('Retrieving channel channelKeyChain...');
     if(channel == 'all'){
