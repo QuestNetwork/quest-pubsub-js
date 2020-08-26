@@ -32,7 +32,6 @@ export class PubSub {
     this.channelParticipantList = {};
     this.channelKeyChain = {};
     this.channelNameList = [];
-
     this.splitter = "-----";
   }
 
@@ -109,18 +108,20 @@ export class PubSub {
     }
   }
   getChannelKeyChain(channel = 'all'){
-    console.log('getting channel keychain');
+    this.channelKeyChain = {};
+    console.log('Testing channelName in channelKeyChain');
+    console.log(JSON.stringify(this.channelKeyChain));
+    if(JSON.stringify(this.channelKeyChain) == '{}'){
+      throw('not set');
+    }
 
+    console.log('getting channel keychain');
     if(channel == 'all'){
       return this.channelKeyChain;
     }
 
-    console.log('Testing channelName in channelKeyChain');
-    if(typeof(this.getChannelKeyChain(channel)) == 'undefined'){
-      throw('not set');
-    }
     console.log('Returning KeyChain...');
-    return this.getChannelKeyChain(channel);
+    return this.channelKeyChain[channel];
   }
 
   stringToArrayBuffer(string,format = 'utf8'){
@@ -521,16 +522,15 @@ export class PubSub {
       console.log('joining channel: ',channel);
       //Retrieve keys
       let channelKeyChain;
-      console.log('getting channel keychain...')
-      if(typeof(this.getChannelKeyChain(channel)) == 'undefined'){
-        try{
-          console.log('getting keychain!');
-          channelKeyChain =  this.getChannelKeyChain(channel);
-        }catch(e){
-          //keychain is not set
-          console.log('no key chain!');
-        }
+      console.log('Getting channel keychain... [0x0200]')
+      try{
+        console.log('Calling getChannelKeyChain...');
+        channelKeyChain =  this.getChannelKeyChain(channel);
+      }catch(e){
+        //keychain is not set
+        console.log('no key chain!');
       }
+
       console.log('keychain start complete...');
       let amiowner = false;
       if(typeof(this.getChannelKeyChain(channel)) != 'undefined' && typeof(this.getChannelKeyChain(channel)['channelPubKey']) != 'undefined'){
