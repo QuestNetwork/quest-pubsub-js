@@ -20,6 +20,7 @@
     "@questnetwork/quest-captcha-js": "file:../quest-captcha-js",
     "axios": "^0.19.2",
     "crypto-js": "^4.0.0",
+    "quest-image-captcha-js": "file:../quest-image-captcha-js",
     "rxjs": "^6.6.2",
     "uuid": "^8.2.0"
   },

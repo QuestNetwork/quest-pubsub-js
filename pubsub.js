@@ -1,3 +1,5 @@
+const qCaptcha = require('quest-image-captcha-js');
+
 const axios = require('axios');
 const CryptoJS = require('crypto-js')
 const { v4: uuidv4 } = require('uuid');
@@ -18,7 +20,8 @@ function isInArray(value, array) {
 }
 
 const DEVMODE = false;
-const qCaptchaFactory = require('@questnetwork/quest-captcha-js');
+// import { GlobalQCaptcha as qCaptcha }  from '@questnetwork/quest-captcha-js';
+
 
 export class PubSub {
     constructor() {
@@ -100,7 +103,6 @@ export class PubSub {
       else{
         this.channelParticipantList[channel] = participantList;
       }
-
     }
     addChannelParticipant(channel,channelPubKey, pubKey){
       this.channelParticipantList[channel]['cList'] += ","+channelPubKey;
@@ -625,9 +627,10 @@ export class PubSub {
               else{
                 //this is a new guy, maybe we should add them to the list? let's challenge them! you should customize this function!!!
                 //generate the captcha
-                let captcha = qCaptchaFactory.create();
-                let image = captcha['image'];
-                this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: image });
+                let {captchaCode,captchaImageBuffer} = await qCaptcha.getCaptcha();
+                console.log(captchaCode);
+                console.log(captchaImageBuffer);
+                this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: captchaImageBuffer });
               }
             }
             if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified){
@@ -649,9 +652,10 @@ export class PubSub {
             else if(!amiowner && msgData['type'] == 'CHALLENGE' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
               //owner is challenging us to join, we will complete the challenge and encrypt our public key for the owner with their publickey
               //show captcha screen foer user
-              this.subs[channel].next({ type: 'CHALLENGE' })
+              console.log('pushing challenge to view...');
+              this.subs[channel].next({ type: 'CHALLENGE', captchaImageBuffer: msgData['message'] })
             }
-            else if(msgData['type'] == 'ownerSayHi' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
+            else if(!amiowner && msgData['type'] == 'ownerSayHi' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
             //WE RECEIVED A USER LIST
               try{
               // decrypt the whistle with our pubKey
