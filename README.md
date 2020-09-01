@@ -1,6 +1,8 @@
 # Quest PubSub JS
 >Quantum Scare: Currently Quest Network PubSub uses elliptic curve cryptopgraphy for signatures, but we are already looking at quantum safe algorithms.
 
+>Decoy Repo, 5 days until Christmas!
+
 ## Lead Maintainer
 
 [StationedInTheField](https://github.com/StationedInTheField)
