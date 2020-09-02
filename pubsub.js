@@ -1,4 +1,4 @@
-const qCaptcha = require('quest-image-captcha-js');
+const qCaptcha = require('@questnetwork/quest-image-captcha-js');
 
 const axios = require('axios');
 const CryptoJS = require('crypto-js')
@@ -19,7 +19,6 @@ function isInArray(value, array) {
   return array.indexOf(value) > -1;
 }
 
-const DEVMODE = false;
 // import { GlobalQCaptcha as qCaptcha }  from '@questnetwork/quest-captcha-js';
 
 
@@ -36,7 +35,11 @@ export class PubSub {
       let uVar;
       this.ipfsId = uVar;
       this.pubSubPeersSub = new Subject();
-      this.DEVMODE = true;
+      this.DEVMODE = false;
+      this.captchaCode = {};
+      this.captchaRetries = {};
+      this.commitNowSub = new Subject();
+
     }
 
     isInArray(value, array) {
@@ -65,6 +68,9 @@ export class PubSub {
 
     ownerCheck(channel, pubKey){
       return ((channel.indexOf(pubKey) > -1) ? true : false);
+    }
+    isOwner(channel,pubkey){
+      return this.ownerCheck(channel,pubkey);
     }
     getOwnerChannelPubKey(channel){
       return channel.split(this.splitter)[1];
@@ -121,7 +127,7 @@ export class PubSub {
 
     setChannelKeyChain(keychain, channel = "all"){
       if(channel == "all"){
-        console.log('Replacing Global Keychain For All Channels...',keychain);
+        this.DEVMODE && console.log('Replacing Global Keychain For All Channels...',keychain);
           this.channelKeyChain = keychain;
       }
       else{
@@ -132,10 +138,10 @@ export class PubSub {
     }
     getChannelKeyChain(channel = 'all'){
       console.log('Testing type of channelKeyChain...');
-      if(channel == 'all'){
+      if(this.DEVMODE && channel == 'all'){
         console.log(JSON.stringify(this.channelKeyChain));
       }
-      else{
+      else if(this.DEVMODE && channel != 'all'){
         console.log(JSON.stringify(this.channelKeyChain[channel]));
       }
 
@@ -152,7 +158,7 @@ export class PubSub {
 
 
       if(channel == 'all'){
-        console.log('Retrieving all channelKeyChains...');
+        this.DEVMODE && console.log('Retrieving all channelKeyChains...');
         return this.channelKeyChain;
       }
 
@@ -415,70 +421,6 @@ export class PubSub {
     }
 
 
-    async verifyCaptchaResponse(action,v2,v3){
-      // if(this.isInArray(action, combined)){
-      //     //verify v2
-      //     try{
-      //       let token = v2;
-      //       // console.log(token);
-      //       let reCaptchaRes = await this.axiosClient.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV2+'&response='+token, {},
-      //       { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf8" } } );
-      //       // console.log(reCaptchaRes);
-      //       reCaptchaRes = reCaptchaRes['data'];
-      //       // console.log(reCaptchaRes);
-      //       if(typeof(reCaptchaRes) == 'undefined' || typeof(reCaptchaRes['success']) == 'undefined' || !reCaptchaRes['success']){
-      //         return true;
-      //       }
-      //     }
-      //     catch(error){
-      //       console.log(error);
-      //       throw('reCaptcha');
-      //     }
-      //
-      //     //verify v3
-      //     try{
-      //       let token = v3;
-      //       // console.log(token);
-      //       let reCaptchaRes = await this.axiosClient.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV3+'&response='+token, {},
-      //       { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf8" } } );
-      //       // console.log(reCaptchaRes);
-      //       reCaptchaRes = reCaptchaRes['data'];
-      //       // console.log(reCaptchaRes);
-      //       if(typeof(reCaptchaRes) != 'undefined' && typeof(reCaptchaRes['success']) != 'undefined' && reCaptchaRes['success'] && reCaptchaRes['action'] == action && reCaptchaRes['score'] >= 0.9){
-      //         return  true;
-      //       }
-      //     }
-      //     catch(error){
-      //       console.log(error);
-      //       throw('reCaptcha');
-      //     }
-      // }
-      // else if(this.isInArray(action, v3only)){
-      //   //verify v3
-      //     try{
-      //       let token = v3;
-      //       // console.log(token);
-      //       let reCaptchaRes = await this.axiosClient.post('https://www.google.com/recaptcha/api/siteverify?secret='+secretKeyV3+'&response='+token, {},
-      //       { headers: {  "Content-Type": "application/x-www-form-urlencoded; charset=utf8" } } );
-      //       // console.log(reCaptchaRes);
-      //       reCaptchaRes = reCaptchaRes['data'];
-      //       // console.log(reCaptchaRes);
-      //       // DEVMODE && console.log(reCaptchaRes);
-      //       // DEVMODE && console.log(component);
-      //
-      //       if(typeof(reCaptchaRes) != 'undefined'  && typeof(reCaptchaRes['success']) != 'undefined' && reCaptchaRes['success'] && reCaptchaRes['action'] == action && reCaptchaRes['score'] >= 0.9){
-      //         return  true;
-      //       }
-      //     }
-      //     catch(error){
-      //       this.DEVMODE && console.log(error);
-      //       throw('reCaptcha');
-      //     }
-      // }
-
-      throw('qCaptcha');
-
-    }
 
     async rsaFullEncrypt(plain,pubKey){
       // console.log('encrypting');
@@ -536,12 +478,14 @@ export class PubSub {
 
     }
 
-    async verifyChallengeResponse(channel, response){
+    async verifyChallengeResponse(channel, code,chPubKey){
           //decrypt it with my private key
+          console.log(code);
+          console.log(this.captchaCode[chPubKey]);
+          if(code == this.captchaCode[chPubKey]){
+            return true;
+          }
           return false;
-          //then test the captchas, this will throw if something isn't right
-    //      return await this.verifyCaptchaResponse("CHALLENGE_RESPONSE",response['v2'],response['v3']);
-          //add the guy to the list
     }
 
 
@@ -573,6 +517,7 @@ export class PubSub {
           //keychain is not set
           console.log('No key chain found. Generating new keys... [0x0200:'+channel+']');
           channelKeyChain = await this.generateChannelKeyChain();
+          console.log(channelKeyChain);
           this.setChannelKeyChain(channelKeyChain,channel);
         }
 
@@ -608,6 +553,10 @@ export class PubSub {
       });
     }
 
+    commitNow(){
+      this.commitNowSub.next(true);
+    }
+
 
     async channelSubscribe(transport,channel,amiowner){
         let peers = await transport.peers(channel);
@@ -628,25 +577,35 @@ export class PubSub {
                 //this is a new guy, maybe we should add them to the list? let's challenge them! you should customize this function!!!
                 //generate the captcha
                 let {captchaCode,captchaImageBuffer} = await qCaptcha.getCaptcha();
-                console.log(captchaCode);
-                console.log(captchaImageBuffer);
+                this.captchaCode[msgData['channelPubKey']] = captchaCode;
                 this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: captchaImageBuffer });
               }
             }
-            if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified){
+            if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
               //we received a challenge response as owner of this channel
               let whistle = await this.rsaFullDecrypt(msgData['whistle'],this.getChannelKeyChain(channel)['ownerPrivKey']);
               let response = await this.aesDecryptHex(msgData['response'],whistle);
               response = JSON.parse(response);
-              let challengeMastered = await this.verifyChallengeResponse(channel, response);
 
+              if(typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined'){
+                this.captchaRetries[msgData['channelPubKey']] = 1
+              }
+              else{
+                this.captchaRetries[msgData['channelPubKey']] = 2;
+              }
+
+              let challengeMastered = await this.verifyChallengeResponse(msgData['channel'], response['code'], msgData['channelPubKey']);
               if(challengeMastered){
                 //add the guy
+                console.log(msgData['channelPubKey']);
                 let newUserChannelPubKey = msgData['channelPubKey'];
+                console.log(response['pubKey']);
                 let newUserPubKey = response['pubKey'];
-                this.addChannelParticipant(channel,newUserChannelPubKey,newUserPubKey);
-                let channelParticipantList =  this.getChannelParticipantList(channel);
-                this.publish(transport,{ type: "ownerSayHi", toChannelPubKey: msgData['channelPubKey'], message: JSON.stringify({ channelParticipantList: channelParticipantList })});
+                this.addChannelParticipant(msgData['channel'],newUserChannelPubKey,newUserPubKey);
+                let channelParticipantList =  this.getChannelParticipantList(msgData['channel']);
+                // this.config.commitNow();rue
+                this.commitNow();
+                this.publish(transport,{ channel: msgData['channel'], type: "ownerSayHi", toChannelPubKey: msgData['channelPubKey'], message: JSON.stringify({ channelParticipantList: channelParticipantList })});
               }
             }
             else if(!amiowner && msgData['type'] == 'CHALLENGE' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
@@ -662,7 +621,9 @@ export class PubSub {
               let whistle = await this.rsaFullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
               let channelInfo = JSON.parse(this.aesDecryptHex(msgData['message'],whistle));
               //decrypt the userlist
-                this.setChannelParticipantList(channel,channelInfo['channelParticipantList']);
+              console.log('Got Channel Info: ',channelInfo);
+                this.setChannelParticipantList(channelInfo['channelParticipantList'],channel);
+                this.commitNow();
                 this.subs[channel].next({ type: 'ownerSayHi' });
               }
               catch(error){
@@ -730,6 +691,8 @@ export class PubSub {
         else if(pubObj['type'] == 'CHALLENGE_RESPONSE'){
           //encrypt response
           this.DEVMODE && console.log('Encrypting CHALLENGE_RESPONSE...');
+          //add fields to response
+          pubObj['response']['pubKey'] = this.getChannelKeyChain(pubObj['channel'])['pubKey'];
           let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(JSON.stringify(pubObj['response']));
           pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
           pubObj['response'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
@@ -738,7 +701,7 @@ export class PubSub {
           //encrypt response
           this.DEVMODE && console.log('Encrypting PRIVATE_MESSAGE...');
           let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message']);
-          pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getChannelParticipantList(pubObj['toChannelPubKey']));
+          pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getPubKeyFromChannelPubKey(pubObj['channel'],pubObj['toChannelPubKey']));
           pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
         else if(pubObj['type'] == "sayHi"){

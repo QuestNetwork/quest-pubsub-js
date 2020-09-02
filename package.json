@@ -1,6 +1,6 @@
 {
   "name": "@questnetwork/quest-pubsub-js",
-  "version": "0.9.1",
+  "version": "0.9.0",
   "private": false,
   "license": "Apache-2.0",
   "author": "QuestNetwork Inc.",
@@ -16,11 +16,10 @@
     "start": "npm run build && node dist/test.js"
   },
   "dependencies": {
+    "@questnetwork/quest-image-captcha-js": "file:../quest-image-captcha-js",
     "@peculiar/webcrypto": "1.1.1",
-    "@questnetwork/quest-captcha-js": "file:../quest-captcha-js",
     "axios": "^0.19.2",
     "crypto-js": "^4.0.0",
-    "quest-image-captcha-js": "file:../quest-image-captcha-js",
     "rxjs": "^6.6.2",
     "uuid": "^8.2.0"
   },
