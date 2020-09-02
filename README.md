@@ -18,6 +18,9 @@ Ethereum:
 
 The JavaSript implementation of the QuestNetwork PubSub Protocol.
 
+## License 
+GNU GPLv3
+
 ## Warning
 
 NPM doesn't work for Quest Network Swarm Projects, because they have to load data from a swarm info file at the build step,
