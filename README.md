@@ -23,6 +23,10 @@ GNU GPLv3
 
 ## Warning
 
+You can ``npm install @questnetwork/quest-pubsub-js``
+
+But!
+
 NPM doesn't work for Quest Network Swarm Projects, because they have to load data from a swarm info file at the build step,
 which needs to be provided locally for security reasons. Instead copy or symlink the main folder to your swarm app or package on
 the build step and define the dependency as local.
