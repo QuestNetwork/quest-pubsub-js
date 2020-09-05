@@ -16,7 +16,7 @@
     "start": "npm run build && node dist/test.js"
   },
   "dependencies": {
-    "@questnetwork/quest-image-captcha-js": "file:../quest-image-captcha-js",
+    "@questnetwork/quest-image-captcha-js": "^0.9.0",
     "@peculiar/webcrypto": "1.1.1",
     "axios": "^0.19.2",
     "crypto-js": "^4.0.0",

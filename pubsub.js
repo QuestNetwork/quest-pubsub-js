@@ -39,6 +39,7 @@ export class PubSub {
       this.captchaCode = {};
       this.captchaRetries = {};
       this.commitNowSub = new Subject();
+      this.inviteCodes = {};
 
     }
 
@@ -55,7 +56,7 @@ export class PubSub {
      }
    }
 
-    async createChannel(channelInput){
+    async createChannel(channelInput, folders = {}){
       //generate keypair
       let channelKeyChain = await this.generateChannelKeyChain({owner:true});
       let democracy = "rep";
@@ -65,6 +66,8 @@ export class PubSub {
       this.addChannelName(channelName);
       return channelName;
     }
+
+
 
     ownerCheck(channel, pubKey){
       return ((channel.indexOf(pubKey) > -1) ? true : false);
@@ -741,6 +744,23 @@ export class PubSub {
     }
 
 
+    getInviteCodes(channel = 'all'){
+      if(channel == 'all'){
+        return this.inviteCodes;
+      }
+      else{
+        return this.inviteCodes[channel];
+      }
+    }
 
-
+    setInviteCodes(inviteObject, channel = 'all'){
+      if(channel == 'all'){
+        this.inviteCodes = inviteObject;
+      }
+      else{
+          this.inviteCodes[channel] = inviteObject;
+      }
+      this.commitNow();
+      return true;
+    }
   }
