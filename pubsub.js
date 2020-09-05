@@ -68,6 +68,13 @@ export class PubSub {
     }
 
 
+    async addChannel(channelNameClean, folders = {}){
+      //generate keypair
+      this.addChannelName(channelNameClean);
+      return channelNameClean;
+    }
+
+
 
     ownerCheck(channel, pubKey){
       return ((channel.indexOf(pubKey) > -1) ? true : false);
@@ -482,13 +489,22 @@ export class PubSub {
     }
 
     async verifyChallengeResponse(channel, code,chPubKey){
-          //decrypt it with my private key
-          console.log(code);
-          console.log(this.captchaCode[chPubKey]);
-          if(code == this.captchaCode[chPubKey]){
+        //test for invite token
+        let ivC = this.inviteCodes[channel]['items'].filter(i => i['code'] == code);
+        for(let i=0;i<this.inviteCodes[channel]['items'].length;i++){
+          if(inviteCodes[channel]['items'][i]['code'] == code && inviteCodes[channel]['items'][i]['max'] > inviteCodes[channel]['items'][i]['used']){
+            inviteCodes[channel]['items'][i]['used']++;
             return true;
           }
-          return false;
+        }
+
+        //test for captcha
+        console.log(code);
+        console.log(this.captchaCode[chPubKey]);
+        if(code == this.captchaCode[chPubKey]){
+          return true;
+        }
+        return false;
     }
 
 
@@ -612,9 +628,23 @@ export class PubSub {
               }
             }
             else if(!amiowner && msgData['type'] == 'CHALLENGE' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
-              //owner is challenging us to join, we will complete the challenge and encrypt our public key for the owner with their publickey
+
+              //see if we have an invite token for this
+              if(typeof this.inviteCodes[msgData['channel']] != 'undefined' && typeof this.inviteCodes[msgData['channel']]['token'] != 'undefined'){
+                //try the token first
+                let ownerChannelPubKey = QuestPubSub.getOwnerChannelPubKey(channel);
+                let pubObj = {
+                  channel: channel,
+                  type: 'CHALLENGE_RESPONSE',
+                  toChannelPubKey: ownerChannelPubKey,
+                  response: { code: this.inviteCodes[msgData['channel']]['token'] }
+                }
+                this.publish(transport,pubObj);
+              }
+
               //show captcha screen foer user
               console.log('pushing challenge to view...');
+              //owner is challenging us to join, we will complete the challenge and encrypt our public key for the owner with their publickey
               this.subs[channel].next({ type: 'CHALLENGE', captchaImageBuffer: msgData['message'] })
             }
             else if(!amiowner && msgData['type'] == 'ownerSayHi' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
@@ -753,6 +783,39 @@ export class PubSub {
       }
     }
 
+    addInviteCode(channel,link,code,newInviteCodeMax){
+      if(typeof this.inviteCodes[channel] == 'undefined'){
+         this.inviteCodes[channel] = {};
+      }
+      if(typeof this.inviteCodes[channel]['codes'] == 'undefined'){
+         this.inviteCodes[channel]['codes'] = {}
+      }
+      if(typeof this.inviteCodes[channel]['links'] == 'undefined'){
+         this.inviteCodes[channel]['links'] = [];
+      }
+      if(typeof this.inviteCodes[channel]['items'] == 'undefined'){
+         this.inviteCodes[channel]['items'] = [];
+      }
+
+      this.inviteCodes[channel]['codes'][link] = code ;
+      this.inviteCodes[channel]['links'].push(  link  );
+      this.inviteCodes[channel]['items'].push({ max: newInviteCodeMax, used: 0, link: link, code:  code});
+      return link;
+    }
+    addInviteToken(channel,token){
+      if(typeof this.inviteCodes[channel]['token'] == 'undefined'){
+         this.inviteCodes[channel]['token'];
+      }
+       this.inviteCodes[channel]['token'] = token;
+       return true;
+    }
+
+    removeInviteCode(channel, link){
+      delete this.inviteCodes[channel]['codes'][link];
+      this.inviteCodes[channel]['links'] = this.inviteCodes[channel]['links'].filter(i => i !== link);
+      this.inviteCodes[channel]['items'] = this.inviteCodes[channel]['items'].filter(i => i['link'] !== link);
+    }
+
     setInviteCodes(inviteObject, channel = 'all'){
       if(channel == 'all'){
         this.inviteCodes = inviteObject;
@@ -760,7 +823,6 @@ export class PubSub {
       else{
           this.inviteCodes[channel] = inviteObject;
       }
-      this.commitNow();
       return true;
     }
   }
