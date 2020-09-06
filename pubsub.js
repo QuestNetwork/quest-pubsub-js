@@ -490,18 +490,19 @@ export class PubSub {
 
     async verifyChallengeResponse(channel, code,chPubKey){
         //test for invite token
+        // console.log("RESPONSE:",code);
         let ivC = this.inviteCodes[channel]['items'].filter(i => i['code'] == code);
         for(let i=0;i<this.inviteCodes[channel]['items'].length;i++){
-          if(inviteCodes[channel]['items'][i]['code'] == code && inviteCodes[channel]['items'][i]['max'] > inviteCodes[channel]['items'][i]['used']){
-            inviteCodes[channel]['items'][i]['used']++;
+          if(this.inviteCodes[channel]['items'][i]['code'] == code && this.inviteCodes[channel]['items'][i]['max'] > this.inviteCodes[channel]['items'][i]['used']){
+            this.inviteCodes[channel]['items'][i]['used']++;
             this.commitNow();
             return true;
           }
         }
 
         //test for captcha
-        console.log(code);
-        console.log(this.captchaCode[chPubKey]);
+        // console.log(code);
+        // console.log(this.captchaCode[chPubKey]);
         if(code == this.captchaCode[chPubKey]){
           return true;
         }
@@ -601,12 +602,13 @@ export class PubSub {
                 this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: captchaImageBuffer });
               }
             }
-            if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
+            // if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
+            if( msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
+              console.log('received challenge response');
               //we received a challenge response as owner of this channel
               let whistle = await this.rsaFullDecrypt(msgData['whistle'],this.getChannelKeyChain(channel)['ownerPrivKey']);
               let response = await this.aesDecryptHex(msgData['response'],whistle);
               response = JSON.parse(response);
-
               if(typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined'){
                 this.captchaRetries[msgData['channelPubKey']] = 1
               }
@@ -640,6 +642,8 @@ export class PubSub {
                   toChannelPubKey: ownerChannelPubKey,
                   response: { code: this.inviteCodes[msgData['channel']]['token'] }
                 }
+                // console.log("THIS IS IT OUR INVITE:",this.inviteCodes[msgData['channel']]['token']);
+                // console.log(pubObj);
                 this.publish(transport,pubObj);
               }
 
