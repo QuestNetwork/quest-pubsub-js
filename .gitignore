@@ -112,3 +112,5 @@ dist
 src/app/swarm.json
 swarm.json
 scratch/
+
+package-lock.json
