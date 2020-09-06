@@ -79,7 +79,10 @@ export class PubSub {
     ownerCheck(channel, pubKey){
       return ((channel.indexOf(pubKey) > -1) ? true : false);
     }
-    isOwner(channel,pubkey){
+    isOwner(channel,pubkey = "none"){
+      if(pubkey == "none"){
+        pubkey = this.getChannelKeyChain(channel)['channelPubKey'];
+      }
       return this.ownerCheck(channel,pubkey);
     }
     getOwnerChannelPubKey(channel){
@@ -111,6 +114,9 @@ export class PubSub {
         //we don't have a list we must be new here, but we should have keys for this channel in the
         return {};
       }
+    }
+    getChannelParticipantCListArray(channel){
+      return this.getChannelParticipantList(channel)['cList'].split(',');
     }
     setChannelParticipantList(participantList, channel = "all"){
       if(channel == 'all'){
@@ -627,7 +633,11 @@ export class PubSub {
                 let channelParticipantList =  this.getChannelParticipantList(msgData['channel']);
                 // this.config.commitNow();rue
                 this.commitNow();
-                this.publish(transport,{ channel: msgData['channel'], type: "ownerSayHi", toChannelPubKey: msgData['channelPubKey'], message: JSON.stringify({ channelParticipantList: channelParticipantList })});
+                let channelParticipantCList =  this.getChannelParticipantCListArray(msgData['channel']);
+                for(let cPK of channelParticipantCList){
+                  this.publish(transport,{ channel: msgData['channel'], type: "ownerSayHi", toChannelPubKey: cPK, message: JSON.stringify({ channelParticipantList: channelParticipantList })});
+                }
+
               }
             }
             else if(!amiowner && msgData['type'] == 'CHALLENGE' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
