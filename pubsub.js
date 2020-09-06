@@ -494,6 +494,7 @@ export class PubSub {
         for(let i=0;i<this.inviteCodes[channel]['items'].length;i++){
           if(inviteCodes[channel]['items'][i]['code'] == code && inviteCodes[channel]['items'][i]['max'] > inviteCodes[channel]['items'][i]['used']){
             inviteCodes[channel]['items'][i]['used']++;
+            this.commitNow();
             return true;
           }
         }
@@ -806,14 +807,17 @@ export class PubSub {
       if(typeof this.inviteCodes[channel]['token'] == 'undefined'){
          this.inviteCodes[channel]['token'];
       }
-       this.inviteCodes[channel]['token'] = token;
-       return true;
+      this.inviteCodes[channel]['token'] = token;
+      this.commitNow();
+      return true;
     }
 
     removeInviteCode(channel, link){
       delete this.inviteCodes[channel]['codes'][link];
       this.inviteCodes[channel]['links'] = this.inviteCodes[channel]['links'].filter(i => i !== link);
       this.inviteCodes[channel]['items'] = this.inviteCodes[channel]['items'].filter(i => i['link'] !== link);
+      this.commitNow();
+      return true;
     }
 
     setInviteCodes(inviteObject, channel = 'all'){
@@ -823,6 +827,7 @@ export class PubSub {
       else{
           this.inviteCodes[channel] = inviteObject;
       }
+      this.commitNow();
       return true;
     }
   }
