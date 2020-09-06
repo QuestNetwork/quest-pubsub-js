@@ -537,7 +537,7 @@ export class PubSub {
           //keychain is not set
           console.log('No key chain found. Generating new keys... [0x0200:'+channel+']');
           channelKeyChain = await this.generateChannelKeyChain();
-          console.log(channelKeyChain);
+          this.DEVMODE && console.log(channelKeyChain);
           this.setChannelKeyChain(channelKeyChain,channel);
         }
 
@@ -633,7 +633,7 @@ export class PubSub {
               //see if we have an invite token for this
               if(typeof this.inviteCodes[msgData['channel']] != 'undefined' && typeof this.inviteCodes[msgData['channel']]['token'] != 'undefined'){
                 //try the token first
-                let ownerChannelPubKey = QuestPubSub.getOwnerChannelPubKey(channel);
+                let ownerChannelPubKey = this.getOwnerChannelPubKey(channel);
                 let pubObj = {
                   channel: channel,
                   type: 'CHALLENGE_RESPONSE',
@@ -804,8 +804,8 @@ export class PubSub {
       return link;
     }
     addInviteToken(channel,token){
-      if(typeof this.inviteCodes[channel]['token'] == 'undefined'){
-         this.inviteCodes[channel]['token'];
+      if(typeof this.inviteCodes[channel] == 'undefined'){
+         this.inviteCodes[channel] = {};
       }
       this.inviteCodes[channel]['token'] = token;
       this.commitNow();
