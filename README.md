@@ -18,19 +18,19 @@ Ethereum:
 
 The JavaSript implementation of the QuestNetwork PubSub Protocol.
 
-## License 
+## License
 GNU GPLv3
 
 ## Installation & Usage
 
-``npm install @questnetwork/quest-pubsub-js``
+``npm install @questnetwork/quest-pubsub-js@0.9.1``
 
 You can `npm run test`, which will compile and run the test.js file.
 
 We recommend to use our [quest-cli](https://github.com/QuestNetwork/quest-cli) to test and build the package.
 Pro Tip: Put a file in your `/bin` that runs the quest-cli like so `node /path/to/quest-cli/index.js` from any folder on your system. It's much nicer!
 
-## Features 
+## Features
 
 **0.9.0**
 - Basic functionality + Decentralized Captcha
