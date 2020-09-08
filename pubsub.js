@@ -39,6 +39,7 @@ export class PubSub {
       this.captchaCode = {};
       this.captchaRetries = {};
       this.commitNowSub = new Subject();
+      this.commitSub = new Subject();
       this.inviteCodes = {};
 
     }
@@ -797,7 +798,6 @@ export class PubSub {
         return this.inviteCodes[channel];
       }
     }
-
     addInviteCode(channel,link,code,newInviteCodeMax){
       if(typeof this.inviteCodes[channel] == 'undefined'){
          this.inviteCodes[channel] = {};
@@ -815,6 +815,7 @@ export class PubSub {
       this.inviteCodes[channel]['codes'][link] = code ;
       this.inviteCodes[channel]['links'].push(  link  );
       this.inviteCodes[channel]['items'].push({ max: newInviteCodeMax, used: 0, link: link, code:  code});
+      this.commitNow();
       return link;
     }
     addInviteToken(channel,token){
@@ -825,7 +826,6 @@ export class PubSub {
       this.commitNow();
       return true;
     }
-
     removeInviteCode(channel, link){
       delete this.inviteCodes[channel]['codes'][link];
       this.inviteCodes[channel]['links'] = this.inviteCodes[channel]['links'].filter(i => i !== link);
@@ -833,7 +833,6 @@ export class PubSub {
       this.commitNow();
       return true;
     }
-
     setInviteCodes(inviteObject, channel = 'all'){
       if(channel == 'all'){
         this.inviteCodes = inviteObject;
