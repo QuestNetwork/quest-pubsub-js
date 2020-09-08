@@ -101,6 +101,14 @@ export class PubSub {
       let list = this.getChannelParticipantList(channel)['cList'];
       return ((list.indexOf(channelPublicKey) > -1) ? true : false);
     }
+    generateChannelParticipantListFromChannelName(channelName){
+      let c = channelName.split(this.splitter)[1];
+      let p = channelName.split(this.splitter)[2];
+      let plist = {};
+      plist['cList'] = c;
+      plist['pList'] = p;
+      return plist;
+    }
     getChannelParticipantList(channel = 'all'){
       if(typeof(this.channelParticipantList) == 'undefined'){
         throw('participant list not set');
