@@ -41,6 +41,7 @@ export class PubSub {
       this.commitNowSub = new Subject();
       this.commitSub = new Subject();
       this.inviteCodes = {};
+      this.channelConfig = {};
 
     }
 
@@ -850,5 +851,41 @@ export class PubSub {
       }
       this.commitNow();
       return true;
+    }
+
+
+
+
+    getChallengeFlag(ch){
+      if(typeof this.channelConfig[ch] != 'undefined' && typeof this.channelConfig[ch]['challengeFlag'] != 'undefined'){
+        return this.channelConfig[ch]['challengeFlag']
+      }
+      else{
+        return 0;
+      }
+    }
+    setChallengeFlag(ch, value){
+      if(typeof this.channelConfig[ch] == 'undefined'){
+        this.channelConfig[ch] = {};
+      }
+      this.channelConfig[ch]['challengeFlag'] = value;
+      this.commit();
+    }
+    getChannelConfig(ch = 'all'){
+      if(ch == 'all'){
+         return this.channelConfig;
+      }
+      else{
+         return this.channelConfig[ch];
+      }
+    }
+    setChannelConfig(config, ch = 'all'){
+      if(ch == 'all'){
+         this.channelConfig = config;
+      }
+      else{
+         this.channelConfig[ch] = config;
+      }
+      this.commit();
     }
   }
