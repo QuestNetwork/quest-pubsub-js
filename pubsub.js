@@ -625,7 +625,7 @@ export class PubSub {
                   this.captchaCode[msgData['channelPubKey']] = captchaCode;
                   this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: captchaImageBuffer });
                 }
-                else if(typeof this.inviteCodes[channel] != 'undefined' && this.inviteCodes[channel].length > 0){
+                else if(typeof this.inviteCodes[channel] != 'undefined' ){
                   this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'] });
                 }
               }
