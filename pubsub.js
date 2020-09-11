@@ -57,6 +57,9 @@ export class PubSub {
        return false;
      }
    }
+   commit(){
+     this.commitSub.next(true);
+   }
 
     async createChannel(channelInput, folders = {}){
       //generate keypair
@@ -613,9 +616,18 @@ export class PubSub {
               else{
                 //this is a new guy, maybe we should add them to the list? let's challenge them! you should customize this function!!!
                 //generate the captcha
-                let {captchaCode,captchaImageBuffer} = await qCaptcha.getCaptcha();
-                this.captchaCode[msgData['channelPubKey']] = captchaCode;
-                this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: captchaImageBuffer });
+                console.log('qps:',this.getChallengeFlag(channel));
+                //TO DO: CHECK FOR UNUSED INVITE CODES FOR THIS CHANNEL
+                console.log('qps:',typeof this.inviteCodes[channel] == 'object' );
+                if(this.getChallengeFlag(channel)){
+                  console.log('challengeFlag activated');
+                  let {captchaCode,captchaImageBuffer} = await qCaptcha.getCaptcha();
+                  this.captchaCode[msgData['channelPubKey']] = captchaCode;
+                  this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: captchaImageBuffer });
+                }
+                else if(typeof this.inviteCodes[channel] != 'undefined' && this.inviteCodes[channel].length > 0){
+                  this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'] });
+                }
               }
             }
             // if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
@@ -876,7 +888,12 @@ export class PubSub {
          return this.channelConfig;
       }
       else{
+        if(typeof this.channelConfig[ch] != 'undefined'){
          return this.channelConfig[ch];
+        }
+        else{
+         return {};
+        }
       }
     }
     setChannelConfig(config, ch = 'all'){
