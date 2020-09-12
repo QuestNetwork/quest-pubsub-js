@@ -1,5 +1,5 @@
 # Quest PubSub JS
->Quantum Scare: Currently Quest Network PubSub uses elliptic curve cryptopgraphy for signatures, but we are already looking at quantum safe algorithms.
+>Quantum Scare: Currently Quest Network PubSub uses elliptic curve cryptography for signatures, but we are already looking at quantum safe algorithms.
 
 ## Lead Maintainer
 
@@ -11,7 +11,7 @@ The JavaSript implementation of the QuestNetwork PubSub Protocol.
 
 ## Installation & Usage
 
-``npm install @questnetwork/quest-pubsub-js@0.9.1``
+``npm install @questnetwork/quest-pubsub-js@0.9.2``
 
 You can `npm run test`, which will compile and run the test.js file.
 
