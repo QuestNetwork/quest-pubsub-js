@@ -39,7 +39,9 @@ export class PubSub {
       this.captchaCode = {};
       this.captchaRetries = {};
       this.commitNowSub = new Subject();
+      this.commitSub = new Subject();
       this.inviteCodes = {};
+      this.channelConfig = {};
 
     }
 
@@ -54,6 +56,9 @@ export class PubSub {
      else{
        return false;
      }
+   }
+   commit(){
+     this.commitSub.next(true);
    }
 
     async createChannel(channelInput, folders = {}){
@@ -99,6 +104,14 @@ export class PubSub {
     isParticipant(channel, channelPublicKey){
       let list = this.getChannelParticipantList(channel)['cList'];
       return ((list.indexOf(channelPublicKey) > -1) ? true : false);
+    }
+    generateChannelParticipantListFromChannelName(channelName){
+      let c = channelName.split(this.splitter)[1];
+      let p = channelName.split(this.splitter)[2];
+      let plist = {};
+      plist['cList'] = c;
+      plist['pList'] = p;
+      return plist;
     }
     getChannelParticipantList(channel = 'all'){
       if(typeof(this.channelParticipantList) == 'undefined'){
@@ -603,9 +616,18 @@ export class PubSub {
               else{
                 //this is a new guy, maybe we should add them to the list? let's challenge them! you should customize this function!!!
                 //generate the captcha
-                let {captchaCode,captchaImageBuffer} = await qCaptcha.getCaptcha();
-                this.captchaCode[msgData['channelPubKey']] = captchaCode;
-                this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: captchaImageBuffer });
+                console.log('qps:',this.getChallengeFlag(channel));
+                //TO DO: CHECK FOR UNUSED INVITE CODES FOR THIS CHANNEL
+                console.log('qps:',typeof this.inviteCodes[channel] == 'object' );
+                if(this.getChallengeFlag(channel)){
+                  console.log('challengeFlag activated');
+                  let {captchaCode,captchaImageBuffer} = await qCaptcha.getCaptcha();
+                  this.captchaCode[msgData['channelPubKey']] = captchaCode;
+                  this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'], message: captchaImageBuffer });
+                }
+                else if(typeof this.inviteCodes[channel] != 'undefined' ){
+                  this.publish(transport,{ channel: msgData['channel'], type: "CHALLENGE", toChannelPubKey: msgData['channelPubKey'] });
+                }
               }
             }
             // if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
@@ -797,7 +819,6 @@ export class PubSub {
         return this.inviteCodes[channel];
       }
     }
-
     addInviteCode(channel,link,code,newInviteCodeMax){
       if(typeof this.inviteCodes[channel] == 'undefined'){
          this.inviteCodes[channel] = {};
@@ -815,6 +836,7 @@ export class PubSub {
       this.inviteCodes[channel]['codes'][link] = code ;
       this.inviteCodes[channel]['links'].push(  link  );
       this.inviteCodes[channel]['items'].push({ max: newInviteCodeMax, used: 0, link: link, code:  code});
+      this.commitNow();
       return link;
     }
     addInviteToken(channel,token){
@@ -825,7 +847,6 @@ export class PubSub {
       this.commitNow();
       return true;
     }
-
     removeInviteCode(channel, link){
       delete this.inviteCodes[channel]['codes'][link];
       this.inviteCodes[channel]['links'] = this.inviteCodes[channel]['links'].filter(i => i !== link);
@@ -833,7 +854,6 @@ export class PubSub {
       this.commitNow();
       return true;
     }
-
     setInviteCodes(inviteObject, channel = 'all'){
       if(channel == 'all'){
         this.inviteCodes = inviteObject;
@@ -843,5 +863,46 @@ export class PubSub {
       }
       this.commitNow();
       return true;
+    }
+
+
+
+
+    getChallengeFlag(ch){
+      if(typeof this.channelConfig[ch] != 'undefined' && typeof this.channelConfig[ch]['challengeFlag'] != 'undefined'){
+        return this.channelConfig[ch]['challengeFlag']
+      }
+      else{
+        return 0;
+      }
+    }
+    setChallengeFlag(ch, value){
+      if(typeof this.channelConfig[ch] == 'undefined'){
+        this.channelConfig[ch] = {};
+      }
+      this.channelConfig[ch]['challengeFlag'] = value;
+      this.commit();
+    }
+    getChannelConfig(ch = 'all'){
+      if(ch == 'all'){
+         return this.channelConfig;
+      }
+      else{
+        if(typeof this.channelConfig[ch] != 'undefined'){
+         return this.channelConfig[ch];
+        }
+        else{
+         return {};
+        }
+      }
+    }
+    setChannelConfig(config, ch = 'all'){
+      if(ch == 'all'){
+         this.channelConfig = config;
+      }
+      else{
+         this.channelConfig[ch] = config;
+      }
+      this.commit();
     }
   }
