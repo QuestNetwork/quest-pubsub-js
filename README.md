@@ -7,7 +7,7 @@
 
 ## Description
 
-The JavaSript implementation of the QuestNetwork PubSub Protocol. Uses the [Interplanetary Filesystem](https://ipfs.io) and [IPFS GossipSub](https://blog.ipfs.io/2020-05-20-gossipsub-v1.1/)
+The JavaSript implementation of the QuestNetwork PubSub Protocol. Uses the [Interplanetary Filesystem](https://ipfs.io) and [IPFS GossipSub](https://blog.ipfs.io/2020-05-20-gossipsub-v1.1/).
 
 ## Installation & Usage
 
