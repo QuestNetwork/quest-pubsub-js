@@ -17,7 +17,6 @@
   "dependencies": {
     "@questnetwork/quest-image-captcha-js": "^0.9.0",
     "@questnetwork/quest-crypto-js": "0.9.3",
-    "axios": "^0.19.2",
     "crypto-js": "^4.0.0",
     "rxjs": "^6.6.2",
     "uuid": "^8.2.0"
