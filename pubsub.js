@@ -195,137 +195,16 @@ export class PubSub {
       return this.channelKeyChain[channel];
     }
 
-    stringToArrayBuffer(string,format){
-      if(typeof(format) == 'undefined'){
-        format='utf8';
-      }
-    let encryptedSecretBuffer = string;
-    let encryptedSecretBinaryString = Buffer.from(encryptedSecretBuffer, format).toString('binary');
-    let encryptedSecretArrayBuffer = new Uint8Array(encryptedSecretBinaryString.length)
-     for (var i = 0; i < encryptedSecretBinaryString.length; i++) {
-       encryptedSecretArrayBuffer[i] = encryptedSecretBinaryString.charCodeAt(i)
-     }
-     return encryptedSecretArrayBuffer;
-    }
 
-    generateAesPassphrase(length) {
-       length = length - 36;
-       var result           = '';
-       var characters       = 'abcdefghijklmnopqrstuvwxyz0123456789-!#?';
-       var charactersLength = characters.length;
-       for ( var i = 0; i < length; i++ ) {
-          result += characters.charAt(Math.floor(Math.random() * charactersLength));
-       }
-
-       //combine with uuid
-       result = uuidv4() + result;
-
-       return result;
-    }
-    aesEncryptB64(b64, whistle = undefined){
-      //string to array buffer
-      console.log('about to create word array');
-      let wordArray = CryptoJS.lib.WordArray.create(this.stringToArrayBuffer(b64,'base64'));
-      return this.aesEncryptWordArray(wordArray,whistle);
-    }
-    aesEncryptUtf8(utf8, whistle = undefined){
-      //string to array buffer
-      let wordArray = CryptoJS.lib.WordArray.create(this.stringToArrayBuffer(utf8,'utf8'));
-      return this.aesEncryptWordArray(wordArray,whistle);
-    }
-    aesEncryptWordArray(wordArray, whistle = undefined){
-      let secret;
-      if(typeof(whistle) == 'undefined'){
-          secret = this.generateAesPassphrase(256);
-      }
-      else{
-        secret = whistle;
-      }
-      // console.log('encryption start...');
-
-      // KEYS FROM SECRET
-      var key = CryptoJS.enc.Utf8.parse(secret.slice(0,64));         // Key: Use a WordArray-object instead of a UTF8-string / NodeJS-buffer
-      var iv = CryptoJS.enc.Utf8.parse(secret.substr(secret.length-16));
-      // ENCRYPT
-      let aesEncryptedB64 = CryptoJS.AES.encrypt(wordArray, key, {
-        iv: iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      }).toString();
-
-      // RESULT
-      // console.log(aesEncryptedB64);
-      // console.log('encryption complete!');
-      return { secret, aesEncryptedB64 }
-    }
-    aesDecryptHex(enc,secret, format = 'utf8'){
-      let msgB64 = Buffer.from(enc,'hex').toString('base64');
-      return this.aesDecryptB64(msgB64, secret, format);
-    }
-    aesDecryptB64(encryptedQuestFileB64, secret, format = 'utf8'){
-      let decryptedQuestFileWordArray;
-      try{
-        //aes decrypt this file
-        let key = CryptoJS.enc.Utf8.parse(secret.slice(0,64));         // Key: Use a WordArray-object instead of a UTF8-string / NodeJS-buffer
-        let iv = CryptoJS.enc.Utf8.parse(secret.substr(secret.length-16));
-        decryptedQuestFileWordArray = CryptoJS.AES.decrypt(encryptedQuestFileB64, key, {
-           iv: iv,
-           mode: CryptoJS.mode.CBC,
-           padding: CryptoJS.pad.Pkcs7
-        });
-        if(decryptedQuestFileWordArray['sigBytes'] < 1){
-          throw('bad key! tell user!');
-        }
-      }
-      catch(error){
-        console.log(error);
-        throw('decryption failed');
-      }
-      if(format == 'hex'){
-        return decryptedQuestFileWordArray.toString(CryptoJS.enc.Hex);
-      }
-      else if(format == 'base64'){
-        return decryptedQuestFileWordArray.toString(CryptoJS.enc.Base64);
-      }
-      else if(format == 'utf8'){
-        let toHex = decryptedQuestFileWordArray.toString(CryptoJS.enc.Hex);
-        return Buffer.from(toHex,'hex').toString('utf8');
-      }
-      // return "123";
-    }
 
     async generateChannelKeyChain(config = {owner:false}){
-      let keyPair =  await WebCrypto.subtle.generateKey({
-        name: 'ECDSA',
-        namedCurve: 'P-521'
-      },
-      true,
-      ["sign","verify"]);
+      let keyPair = await this.crypto.ec.generateKeyPair();
+      let oaepKeyPair = await this.crypto.rsa.generateKeyPair();
 
-
-      let channelPubKeyJWK =  await WebCrypto.subtle.exportKey('jwk',keyPair.publicKey);
-      let channelPrivKeyJWK = await WebCrypto.subtle.exportKey('jwk',keyPair.privateKey);
-
-      let channelPubKeyStringify =  JSON.stringify(channelPubKeyJWK);
-      let channelPrivKeyStringify = JSON.stringify(channelPrivKeyJWK);
-      let channelPubKey = Buffer.from(channelPubKeyStringify,'utf8').toString('hex');
-      let channelPrivKey =  Buffer.from(channelPrivKeyStringify,'utf8').toString('hex');
-
-      let oaepKeyPair = await WebCrypto.subtle.generateKey(
-        {
-          name: "RSA-OAEP",
-          modulusLength: 4096,
-          publicExponent: new Uint8Array([1, 0, 1]),
-          hash: "SHA-512"
-        },
-        true,
-        ["encrypt", "decrypt"]
-      );
-
-      let pubKeyArrayBuffer =  await WebCrypto.subtle.exportKey('spki',oaepKeyPair.publicKey);
-      let pubKey = Buffer.from(pubKeyArrayBuffer).toString('hex');
-      let privKeyArrayBuffer = await WebCrypto.subtle.exportKey('pkcs8',oaepKeyPair.privateKey);
-      let privKey = Buffer.from(privKeyArrayBuffer).toString('hex');
+      let channelPubKey = keyPair['pubKey'];
+      let channelPrivKey =  keyPair['privKey'];
+      let pubKey = oaepKeyPair['pubKey'];
+      let privKey = oaepKeyPair['privKey'];
       let channelKeyChain = { channelPubKey: channelPubKey, channelPrivKey: channelPrivKey, pubKey: pubKey, privKey: privKey };
 
 
@@ -333,178 +212,25 @@ export class PubSub {
         return channelKeyChain;
       }
 
-      let oaepOwnerKeyPair = await WebCrypto.subtle.generateKey(
-        {
-          name: "RSA-OAEP",
-          modulusLength: 4096,
-          publicExponent: new Uint8Array([1, 0, 1]),
-          hash: "SHA-512"
-        },
-        true,
-        ["encrypt", "decrypt"]
-      );
+      let oaepOwnerKeyPair = await this.crypto.rsa.generateKeyPair();
 
       if(config['owner']){
-        let ownerPubKeyArrayBuffer =  await WebCrypto.subtle.exportKey('spki',oaepOwnerKeyPair.publicKey);
-        channelKeyChain['ownerPubKey'] = Buffer.from(pubKeyArrayBuffer).toString('hex');
-        let ownerPrivKeyArrayBuffer = await WebCrypto.subtle.exportKey('pkcs8',oaepOwnerKeyPair.privateKey);
-        channelKeyChain['ownerPrivKey'] = Buffer.from(privKeyArrayBuffer).toString('hex');
+        channelKeyChain['ownerPubKey'] = oaepOwnerKeyPair['pubKey'];
+        channelKeyChain['ownerPrivKey'] = oaepOwnerKeyPair['privKey']
       }
 
-
-      // console.log(channelKeyChain);
       return channelKeyChain;
-
-      //generate channel priv pub and priv pub
-    }
-
-
-    async importKey(alg,format,keyenc,key){
-      if(format == 'jwk'){
-        key = JSON.parse(Buffer.from(key,keyenc).toString('utf8'));
-      }
-      //else if(format == 'pkcs8'){
-      //   key = Buffer.from(key,keyenc).toString('base64');
-      // }
-      else{
-        let keyBuf = Buffer.from(key,keyenc);
-        key = this.bufferToArrayBuffer(keyBuf);
-      }
-        let action;
-        if(alg == "RSA-OAEP" && format == 'pkcs8'){
-          action = ["decrypt"];
-        }
-        else if(alg == "RSA-OAEP" && format == 'spki'){
-          action = ["encrypt"];
-        }
-        else if(alg == "ECDSA" && format == 'jwk'){
-          action = key['key_ops'];
-        }
-        let keyConfig = {   //these are the algorithm options
-            name: alg,
-            hash: {name: "SHA-512"}, //can be "SHA-1", "SHA-256", "SHA-384", or "SHA-512"
-        }
-        if(alg == "ECDSA"){
-          keyConfig['namedCurve'] = "P-521";
-        }
-
-        // console.log(key);
-        // console.log(key);
-        let importedKey = await WebCrypto.subtle.importKey(
-              format, //can be "jwk" (public or private), "spki" (public only), or "pkcs8" (private only)
-              key,
-              keyConfig,
-              true, //whether the key is extractable (i.e. can be used in exportKey)
-              action //"encrypt" or "wrapKey" for public key import or
-                          //"decrypt" or "unwrapKey" for private key imports
-        );
-        return importedKey;
-    }
-
-    bufferToArrayBuffer(buf) {
-        var ab = new ArrayBuffer(buf.length);
-        var view = new Uint8Array(ab);
-        for (var i = 0; i < buf.length; ++i) {
-            view[i] = buf[i];
-        }
-        return ab;
     }
 
     async sign(obj){
-      // console.log('signing!');
-      // console.log(obj['channel']);
       let keyChain = this.getChannelKeyChain(obj['channel']);
       let keyHex = keyChain['channelPrivKey'];
-      let key = await this.importKey('ECDSA','jwk','hex',keyHex);
-      let string = JSON.stringify(obj);
-      let encoded = new TextEncoder().encode(string);
-      let sigArrayBuffer = await WebCrypto.subtle.sign(
-       {
-         name: "ECDSA",
-         namedCurve: "P-521",
-         hash: {name: "SHA-512"},
-       },
-       key,
-       encoded
-      );
-      obj['sig'] = Buffer.from(sigArrayBuffer).toString('hex');
-      return obj;
+      return await this.crypto.ec.sign(obj, keyHex);
     }
 
     async verify(obj){
       let keyHex = obj['channelPubKey'];
-      let key = await this.importKey('ECDSA','jwk','hex',keyHex);
-      let sig = this.bufferToArrayBuffer(Buffer.from(obj['sig'], 'hex'));
-      //remove
-      delete obj['sig'];
-      let encoded = new TextEncoder().encode(JSON.stringify(obj));
-      return await WebCrypto.subtle.verify(
-        {
-          name: "ECDSA",
-          hash: {name: "SHA-512"},
-        },
-        key,
-        sig,
-        encoded
-      );
-    }
-
-
-
-    async rsaFullEncrypt(plain,pubKey){
-      // console.log('encrypting');
-      let key = await this.importKey('RSA-OAEP','spki','hex',pubKey);
-      // console.log(key);
-         let rsaEncrypted;
-        try{
-          rsaEncrypted = await WebCrypto.subtle.encrypt(
-          {
-            name: "RSA-OAEP"
-          },
-          key,
-          Buffer.from(plain, 'utf8')
-          );
-          return Buffer.from(rsaEncrypted).toString('hex');
-        }
-        catch(error){
-          throw(error);
-        }
-    }
-
-    async rsaFullDecrypt(enc,pk){
-      // console.log('dencrypting',enc);
-      let key = await this.importKey('RSA-OAEP','pkcs8','hex',pk);
-      let messageBuf = Buffer.from(enc,'hex');
-      let messageBufArray = this.bufferToArrayBuffer(messageBuf);
-      return await this.rsaDecrypt(key,messageBufArray);
-    }
-
-    async rsaDecrypt(importedKey,encryptedSecretArrayBuffer ){
-      let decryptedMessage;
-     // try{
-       decryptedMessage = await WebCrypto.subtle.decrypt(
-       {
-         name: "RSA-OAEP"
-       },
-       importedKey,
-       encryptedSecretArrayBuffer
-       );
-       // DEVMODE && console.log(decryptedMessage);
-
-        var bufView = new Uint8Array(decryptedMessage);
-        var length = bufView.length;
-        var rsaDecrypted = '';
-        var addition = Math.pow(2,16)-1;
-
-      for(var i = 0;i<length;i+=addition){
-          if(i + addition > length){
-              addition = length - i;
-          }
-          rsaDecrypted += String.fromCharCode.apply(null, bufView.subarray(i,i+addition));
-      }
-      // DEVMODE &&  console.log('decryptedMessage:'+rsaDecrypted);
-      return rsaDecrypted;
-
+      return await this.crypto.ec.verify(obj, keyHex);
     }
 
     async verifyChallengeResponse(channel, code,chPubKey){
@@ -634,8 +360,8 @@ export class PubSub {
             if( msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
               console.log('received challenge response');
               //we received a challenge response as owner of this channel
-              let whistle = await this.rsaFullDecrypt(msgData['whistle'],this.getChannelKeyChain(channel)['ownerPrivKey']);
-              let response = await this.aesDecryptHex(msgData['response'],whistle);
+              let whistle = await this.crypto.rsa.fullDecrypt(msgData['whistle'],this.getChannelKeyChain(channel)['ownerPrivKey']);
+              let response = await this.crypto.aes.decryptHex(msgData['response'],whistle);
               response = JSON.parse(response);
               if(typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined'){
                 this.captchaRetries[msgData['channelPubKey']] = 1
@@ -688,8 +414,8 @@ export class PubSub {
             //WE RECEIVED A USER LIST
               try{
               // decrypt the whistle with our pubKey
-              let whistle = await this.rsaFullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
-              let channelInfo = JSON.parse(this.aesDecryptHex(msgData['message'],whistle));
+              let whistle = await this.rsa.fullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
+              let channelInfo = JSON.parse(this.crypto.aes.decryptHex(msgData['message'],whistle));
               //decrypt the userlist
               console.log('Got Channel Info: ',channelInfo);
                 this.setChannelParticipantList(channelInfo['channelParticipantList'],channel);
@@ -710,7 +436,7 @@ export class PubSub {
               let pubkey = this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']);
               this.DEVMODE && console.log('Encrypted Message: ',msgData['message']);
               // console.log('PubKey: ',pubkey);
-              msg['message'] = this.aesDecryptHex(msgData['message'],pubkey);
+              msg['message'] = this.crypto.aes.decryptHex(msgData['message'],pubkey);
               this.DEVMODE && console.log('Decrypted Message: ',msg['message']);
               msg['type'] = "CHANNEL_MESSAGE";
               msg['from'] = message.from;
@@ -755,7 +481,7 @@ export class PubSub {
         if(pubObj['type'] == 'CHANNEL_MESSAGE'){
           //encrypt message
           this.DEVMODE && console.log('Encrypting CHANNEL_MESSAGE...');
-          let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message'],this.getChannelKeyChain(pubObj['channel'])['pubKey']);
+          let {secret, aesEncryptedB64 } = this.crypto.aes.encryptUtf8(pubObj['message'],this.getChannelKeyChain(pubObj['channel'])['pubKey']);
           pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
         else if(pubObj['type'] == 'CHALLENGE_RESPONSE'){
@@ -763,20 +489,20 @@ export class PubSub {
           this.DEVMODE && console.log('Encrypting CHALLENGE_RESPONSE...');
           //add fields to response
           pubObj['response']['pubKey'] = this.getChannelKeyChain(pubObj['channel'])['pubKey'];
-          let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(JSON.stringify(pubObj['response']));
-          pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
+          let {secret, aesEncryptedB64 } = this.crypto.aes.encryptUtf8(JSON.stringify(pubObj['response']));
+          pubObj['whistle'] = await this.rsa.fullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
           pubObj['response'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
         else if(pubObj['type'] == 'PRIVATE_MESSAGE' || pubObj['type'] == 'ownerSayHi'){
           //encrypt response
           this.DEVMODE && console.log('Encrypting PRIVATE_MESSAGE...');
-          let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message']);
-          pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getPubKeyFromChannelPubKey(pubObj['channel'],pubObj['toChannelPubKey']));
+          let {secret, aesEncryptedB64 } = this.crypto.aes.encryptUtf8(pubObj['message']);
+          pubObj['whistle'] = await this.rsa.fullEncrypt(secret,this.getPubKeyFromChannelPubKey(pubObj['channel'],pubObj['toChannelPubKey']));
           pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
         else if(pubObj['type'] == "sayHi"){
-          // let {secret, aesEncryptedB64 } = this.aesEncryptUtf8(pubObj['message']);
-          // pubObj['whistle'] = await this.rsaFullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
+          // let {secret, aesEncryptedB64 } = this.crypto.aes.aesEncryptUtf8(pubObj['message']);
+          // pubObj['whistle'] = await this.rsa.fullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
           // pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
         let date = new Date();
