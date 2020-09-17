@@ -5,15 +5,11 @@ const CryptoJS = require('crypto-js')
 const { v4: uuidv4 } = require('uuid');
 import { Subject } from "rxjs";
 
+
+import { NativeCrypto } from "@questnetwork/quest-crypto-js";
+
 //provisional: https://github.com/PeculiarVentures/webcrypto/issues/19
-let WebCrypto;
-if(typeof(window.crypto) != 'undefined'){
-  WebCrypto = window.crypto;
-}
-else{
-  let { Crypto } = require("@peculiar/webcrypto");
-  WebCrypto = new Crypto();
-}
+
 
 function isInArray(value, array) {
   return array.indexOf(value) > -1;
@@ -42,6 +38,8 @@ export class PubSub {
       this.commitSub = new Subject();
       this.inviteCodes = {};
       this.channelConfig = {};
+
+      this.crypto = new NativeCrypto();
 
     }
 
