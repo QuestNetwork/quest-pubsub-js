@@ -488,7 +488,7 @@ export class PubSub {
           pubObj['whistle'] = await this.rsa.fullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
           pubObj['response'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
-        else if(pubObj['type'] == 'PRIVATE_MESSAGE' || pubObj['type'] == 'ownerSayHi'){
+        else if(pubObj['type'] == 'PRIVATE_MESSAGE' || pubObj['type'] == 'ownerSayHi' || pubObj['type'] == "SHARE_SOCIAL"){
           //encrypt response
           this.DEVMODE && console.log('Encrypting PRIVATE_MESSAGE...');
           let {secret, aesEncryptedB64 } = this.crypto.aes.encryptUtf8(pubObj['message']);
