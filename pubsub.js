@@ -8,14 +8,11 @@ import { Subject } from "rxjs";
 
 import { NativeCrypto } from "@questnetwork/quest-crypto-js";
 
-//provisional: https://github.com/PeculiarVentures/webcrypto/issues/19
 
 
 function isInArray(value, array) {
   return array.indexOf(value) > -1;
 }
-
-// import { GlobalQCaptcha as qCaptcha }  from '@questnetwork/quest-captcha-js';
 
 
 export class PubSub {
