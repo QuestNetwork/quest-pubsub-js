@@ -1,6 +1,5 @@
 const qCaptcha = require('@questnetwork/quest-image-captcha-js');
 
-const axios = require('axios');
 const CryptoJS = require('crypto-js')
 const { v4: uuidv4 } = require('uuid');
 import { Subject } from "rxjs";
@@ -36,7 +35,14 @@ export class PubSub {
       this.inviteCodes = {};
       this.channelConfig = {};
 
+      this.incomingFavoriteRequestList = [];
+
       this.crypto = new NativeCrypto();
+
+
+      this.socialProfiles = {};
+      this.socialSharedWith = [];
+      this.socialLinks = {};
 
     }
 
@@ -56,7 +62,7 @@ export class PubSub {
      this.commitSub.next(true);
    }
 
-    async createChannel(channelInput, folders = {}){
+    async createChannel(channelInput){
       //generate keypair
       let channelKeyChain = await this.generateChannelKeyChain({owner:true});
       let democracy = "rep";
@@ -68,7 +74,7 @@ export class PubSub {
     }
 
 
-    async addChannel(channelNameClean, folders = {}){
+    async addChannel(channelNameClean){
       //generate keypair
       this.addChannelName(channelNameClean);
       return channelNameClean;
@@ -145,11 +151,23 @@ export class PubSub {
     setChannelNameList(list){
        this.channelNameList = list;
     }
+    getIncomingFavoriteRequests(){
+      return this.incomingFavoriteRequestList;
+    }
+    setIncomingFavoriteRequests(list){
+       this.incomingFavoriteRequestList = list;
+    }
+    removeIncomingFavoriteRequest(pubKey){
+       this.incomingFavoriteRequestList = this.incomingFavoriteRequestList.filter(e => e['pubKey'] != pubKey);
+    }
     addChannelName(channelName){
       this.channelNameList.push(channelName);
     }
 
     setChannelKeyChain(keychain, channel = "all"){
+      console.log('PubSub setChannelKeyChain: ',channel);
+      console.log('PubSub setChannelKeyChain: ',keychain);
+
       if(channel == "all"){
         this.DEVMODE && console.log('Replacing Global Keychain For All Channels...',keychain);
           this.channelKeyChain = keychain;
@@ -163,10 +181,10 @@ export class PubSub {
     getChannelKeyChain(channel = 'all'){
       console.log('Testing type of channelKeyChain...');
       if(this.DEVMODE && channel == 'all'){
-        console.log(JSON.stringify(this.channelKeyChain));
+        console.log(this.channelKeyChain);
       }
       else if(this.DEVMODE && channel != 'all'){
-        console.log(JSON.stringify(this.channelKeyChain[channel]));
+        console.log(this.channelKeyChain[channel]);
       }
 
       if(typeof(this.channelKeyChain) == 'undefined'){
@@ -220,7 +238,8 @@ export class PubSub {
     async sign(obj){
       let keyChain = this.getChannelKeyChain(obj['channel']);
       let keyHex = keyChain['channelPrivKey'];
-      return await this.crypto.ec.sign(obj, keyHex);
+      console.log("Crypto: Signing...")
+      return await this.crypto.ec.sign(obj, keyChain['channelPrivKey']);
     }
 
     async verify(obj){
@@ -325,10 +344,13 @@ export class PubSub {
         transport.subscribe(channel, async(message) => {
           console.log('New message!',message);
             let msgData = JSON.parse(message.data.toString('utf8'));
-            this.DEVMODE && console.log(msgData);
-            this.DEVMODE && console.log('Verifying signature...');
+            if(typeof msgData == 'string'){
+              msgData = JSON.parse(msgData);
+            }
+             console.log(msgData);
+             // console.log('Verifying signature...');
             let signatureVerified = await this.verify(msgData);
-            this.DEVMODE && console.log('Signature:',signatureVerified);
+            // console.log('Signature:',signatureVerified);
             if(amiowner && msgData['type'] == "sayHi" && signatureVerified){
               //put together a message with all users whistleid timestamp, hash and sign message with pubkey
               if(this.isParticipant(channel, msgData['channelPubKey'])){
@@ -352,12 +374,18 @@ export class PubSub {
               }
             }
             // if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
-            if( msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
-              console.log('received challenge response');
+            else if(amiowner && msgData['type'] == 'CHALLENGE_RESPONSE'  && signatureVerified && (((Object.keys(this.captchaRetries).length === 0 && this.captchaRetries.constructor === Object) || typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined') || this.captchaRetries[msgData['channelPubKey']] < 2)){
+              console.log('PubSub: Received challenge response!');
               //we received a challenge response as owner of this channel
               let whistle = await this.crypto.rsa.fullDecrypt(msgData['whistle'],this.getChannelKeyChain(channel)['ownerPrivKey']);
               let response = await this.crypto.aes.decryptHex(msgData['response'],whistle);
-              response = JSON.parse(response);
+
+              console.log(response);
+              if(typeof response == 'string'){
+                response = JSON.parse(response);
+              }
+              console.log(response);
+
               if(typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined'){
                 this.captchaRetries[msgData['channelPubKey']] = 1
               }
@@ -365,6 +393,7 @@ export class PubSub {
                 this.captchaRetries[msgData['channelPubKey']] = 2;
               }
 
+              console.log('Verifying challenge response:'+response['code']);
               let challengeMastered = await this.verifyChallengeResponse(msgData['channel'], response['code'], msgData['channelPubKey']);
               if(challengeMastered){
                 //add the guy
@@ -409,8 +438,8 @@ export class PubSub {
             //WE RECEIVED A USER LIST
               try{
               // decrypt the whistle with our pubKey
-              let whistle = await this.rsa.fullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
-              let channelInfo = JSON.parse(this.crypto.aes.decryptHex(msgData['message'],whistle));
+              let whistle = await this.crypto.rsa.fullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
+              let channelInfo = this.crypto.aes.decryptHex(msgData['message'],whistle);
               //decrypt the userlist
               console.log('Got Channel Info: ',channelInfo);
                 this.setChannelParticipantList(channelInfo['channelParticipantList'],channel);
@@ -431,25 +460,139 @@ export class PubSub {
               let pubkey = this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']);
               this.DEVMODE && console.log('Encrypted Message: ',msgData['message']);
               // console.log('PubKey: ',pubkey);
+              msg['id'] = uuidv4();
               msg['message'] = this.crypto.aes.decryptHex(msgData['message'],pubkey);
               this.DEVMODE && console.log('Decrypted Message: ',msg['message']);
               msg['type'] = "CHANNEL_MESSAGE";
               msg['from'] = message.from;
               msg['channelPubKey'] = msgData['channelPubKey'];
+              msg['channel'] = channel;
               if(msg['from'] == this.getIpfsId()['id']){
                 msg['self'] = true;
               }else{
                 msg['self'] = false;
               }
 
-
-              // if(typeof(this.channelHistory[channel]) == 'undefined'){
-                // this.channelHistory[channel] = [];
-              // }
               this.channelHistory[channel].push(msg);
               this.subs[channel].next(msg);
             }
+            else if(msgData['type'] == 'SHARE_PUBLIC_SOCIAL' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
+              console.log(msgData);
+              let pubkey = this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']);
+              let signedSocialObj = this.crypto.aes.decryptHex(msgData['message'],pubkey);
+              console.log(signedSocialObj);
+              let isVerified = await this.crypto.ec.verify(signedSocialObj,signedSocialObj['key']['pubKey']);
+              if(isVerified){
+                console.log("PubSub: Received Social Profile ...",signedSocialObj)
+                this.socialProfiles[signedSocialObj['key']['pubKey']] = signedSocialObj;
+                if(typeof this.socialLinks[msgData['channelPubKey']] == 'undefined'){
+                  this.socialLinks[msgData['channelPubKey']] = []
+                }
+                this.socialLinks[msgData['channelPubKey']].push(signedSocialObj['key']['pubKey']);
+                this.commitNow();
+                let pubObj = { channel: channel, toChannelPubKey: msgData['channelPubKey'], type: "RECEIVED_SOCIAL", message: signedSocialObj['key']['pubKey'] };
+                this.publish(transport, pubObj);
+              }
+
+            }
+            else if( (msgData['type'] == "REQUEST_FAVORITE" || msgData['type'] == 'SHARE_PRIVATE_SOCIAL') && this.isParticipant(channel, msgData['channelPubKey']) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified ){
+              console.log('PubSub: Received Private Social or request favorite!');
+
+
+              try{
+                let whistle = await this.crypto.rsa.fullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
+                let decryptedMessageObj = this.crypto.aes.decryptHex(msgData['message'],whistle);
+
+                      if(msgData['type'] == 'SHARE_PRIVATE_SOCIAL'){
+                        console.log('PubSub: Received Private Social');
+                          let isVerified = await this.crypto.ec.verify(decryptedMessageObj,decryptedMessageObj['key']['pubKey']);
+                          if(isVerified){
+                            this.socialProfiles[decryptedMessageObj['key']['pubKey']] = decryptedMessageObj;
+                            if(typeof this.socialLinks[msgData['channelPubKey']] == 'undefined'){
+                              this.socialLinks[msgData['channelPubKey']] = []
+                            }
+                            this.socialLinks[msgData['channelPubKey']].push(decryptedMessageObj['key']['pubKey']);
+                            this.commit();
+
+                            let pubObj = { channel: channel, toChannelPubKey: msgData['channelPubKey'], type: "RECEIVED_SOCIAL", message: decryptedMessageObj['key']['pubKey'] };
+                            this.publish(transport, pubObj);
+                          }
+                      }
+                      else if(msgData['type'] == "REQUEST_FAVORITE"){
+                        console.log('PubSub: Received Favorite Request');
+                        //add request to incoming request list and show in channel list
+                        if(!this.isInFavoriteRequestList(decryptedMessageObj['pubKey'])){
+                          this.incomingFavoriteRequestList.push(decryptedMessageObj);
+                        }else{
+                          for(let i=0;i<this.incomingFavoriteRequestList.length;i++){
+                            if(this.incomingFavoriteRequestList[i]['pubKey'] == decryptedMessageObj['pubKey']){
+                              this.incomingFavoriteRequestList[i]['invite'] = decryptedMessageObj['invite']
+                            }
+                          }
+                        }
+                      }
+
+
+              }
+              catch(error){
+                //fail silently
+                console.log(error);
+              }
+
+            }
+            else if(msgData['type'] == 'RECEIVED_SOCIAL' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
+              //WE RECEIVED A READ RECEIPT
+                try{
+                // decrypt the whistle with our pubKey
+                  let whistle = await this.crypto.rsa.fullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
+                  let socialPubKey = this.crypto.aes.decryptHex(msgData['message'],whistle);
+                  this.socialSharedWith.push(msgData['channelPubKey']);
+                  console.log('Read Receipt Social From ',msgData['channelPubKey']);
+                  this.commit();
+                }
+                catch(error){
+                  //fail silently
+                  console.log(error);
+                }
+
+            }
         });
+    }
+
+
+    isInFavoriteRequestList(pubKey){
+      for(let f of this.incomingFavoriteRequestList){
+        if(f['pubKey'] == pubKey){
+          return true;
+        }
+      }
+      return false;
+    }
+
+
+    setSocialProfiles(v){
+      this.socialProfiles = v;
+    }
+    setSocialProfile(profileId,v){
+        this.socialProfiles[profileId] = v;
+    }
+    getSocialProfiles(){
+      return this.socialProfiles;
+    }
+    setSocialLinks(v){
+      this.socialLinks = v;
+    }
+    getSocialLinks(){
+      return this.socialLinks;
+    }
+    setSocialSharedWith(array){
+      this.socialSharedWith = array;
+    }
+    getSocialSharedWith(){
+      return this.socialSharedWith;
+    }
+    clearSocialSharedWith(){
+      this.socialSharedWith = [];
     }
 
     getIpfsId(){
@@ -473,10 +616,10 @@ export class PubSub {
        try {
         console.log('Publishing:');
         console.log(pubObj);
-        if(pubObj['type'] == 'CHANNEL_MESSAGE'){
+        if(pubObj['type'] == 'CHANNEL_MESSAGE' || pubObj['type'] == "SHARE_PUBLIC_SOCIAL"){
           //encrypt message
           this.DEVMODE && console.log('Encrypting CHANNEL_MESSAGE...');
-          let {secret, aesEncryptedB64 } = this.crypto.aes.encryptUtf8(pubObj['message'],this.getChannelKeyChain(pubObj['channel'])['pubKey']);
+          let {secret, aesEncryptedB64 } = this.crypto.aes.encrypt(pubObj['message'],this.getChannelKeyChain(pubObj['channel'])['pubKey']);
           pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
         else if(pubObj['type'] == 'CHALLENGE_RESPONSE'){
@@ -485,26 +628,22 @@ export class PubSub {
           //add fields to response
           pubObj['response']['pubKey'] = this.getChannelKeyChain(pubObj['channel'])['pubKey'];
           let {secret, aesEncryptedB64 } = this.crypto.aes.encryptUtf8(JSON.stringify(pubObj['response']));
-          pubObj['whistle'] = await this.rsa.fullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
+          pubObj['whistle'] = await this.crypto.rsa.fullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
           pubObj['response'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
-        else if(pubObj['type'] == 'PRIVATE_MESSAGE' || pubObj['type'] == 'ownerSayHi' || pubObj['type'] == "SHARE_SOCIAL"){
+        else if(pubObj['type'] == 'PRIVATE_MESSAGE' || pubObj['type'] == 'ownerSayHi' || pubObj['type'] == "SHARE_PRIVATE_SOCIAL" || pubObj['type'] == "RECEIVED_SOCIAL" || pubObj['type'] == "REQUEST_FAVORITE"){
           //encrypt response
           this.DEVMODE && console.log('Encrypting PRIVATE_MESSAGE...');
-          let {secret, aesEncryptedB64 } = this.crypto.aes.encryptUtf8(pubObj['message']);
-          pubObj['whistle'] = await this.rsa.fullEncrypt(secret,this.getPubKeyFromChannelPubKey(pubObj['channel'],pubObj['toChannelPubKey']));
+          let {secret, aesEncryptedB64 } = this.crypto.aes.encrypt(pubObj['message']);
+          pubObj['whistle'] = await this.crypto.rsa.fullEncrypt(secret,this.getPubKeyFromChannelPubKey(pubObj['channel'],pubObj['toChannelPubKey']));
           pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
-        }
-        else if(pubObj['type'] == "sayHi"){
-          // let {secret, aesEncryptedB64 } = this.crypto.aes.aesEncryptUtf8(pubObj['message']);
-          // pubObj['whistle'] = await this.rsa.fullEncrypt(secret,this.getOwnerPubKey(pubObj['channel']));
-          // pubObj['message'] = Buffer.from(aesEncryptedB64,'base64').toString('hex');
         }
         let date = new Date();
         pubObj['timestamp'] = date.getTime();
         pubObj['channelPubKey'] = this.getChannelKeyChain(pubObj['channel'])['channelPubKey'];
         pubObj = await this.sign(pubObj);
-        this.DEVMODE && console.log('Signed Message Object:',pubObj);
+
+        // console.log('Signed Message Object:',pubObj);
         let dataString = JSON.stringify(pubObj);
         this.DEVMODE && console.log('Signed Message DataString:',dataString);
         let data = Buffer.from(dataString,'utf8');
