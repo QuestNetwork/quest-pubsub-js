@@ -11,7 +11,7 @@ The JavaSript implementation of the QuestNetwork PubSub Protocol. Uses the [Inte
 
 ## Installation & Usage
 
-``npm install @questnetwork/quest-pubsub-js@0.9.2``
+``npm install @questnetwork/quest-pubsub-js@0.9.3``
 
 You can `npm run test`, which will compile and run the test.js file.
 
@@ -25,6 +25,9 @@ Pro Tip: Put a file in your `/bin` that runs the quest-cli like so `node /path/t
 
 **0.9.1**
 - Added invite codes and plist sync
+
+**0.9.3**
+- Added social types
 
 ## Support Us
 This project is a lot of work and unfortunately we need to eat food (ツ)
