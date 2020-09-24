@@ -1,6 +1,6 @@
 {
   "name": "@questnetwork/quest-pubsub-js",
-  "version": "0.9.3",
+  "version": "0.9.3-rc1",
   "license": "AGPL-3.0",
   "author": "StationedInTheField",
   "repository": {
