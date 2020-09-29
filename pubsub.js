@@ -343,7 +343,16 @@ export class PubSub {
             }
              console.log(msgData);
              // console.log('Verifying signature...');
+
+             let msgHash = "";
+             if(msgData['channelPubKey'] != 'undefined' && msgData['sig'] != 'undefined'){
+               msgHash = msgData['channelPubKey']+'-----'+msgData['sig'];
+             }
+
             let signatureVerified = await this.verify(msgData);
+
+
+
             // console.log('Signature:',signatureVerified);
             if(amiowner && msgData['type'] == "sayHi" && signatureVerified){
               //put together a message with all users whistleid timestamp, hash and sign message with pubkey
@@ -426,7 +435,7 @@ export class PubSub {
               //show captcha screen foer user
               console.log('pushing challenge to view...');
               //owner is challenging us to join, we will complete the challenge and encrypt our public key for the owner with their publickey
-              this.subs[channel].next({ type: 'CHALLENGE', captchaImageBuffer: msgData['message'] })
+              this.subs[channel].next({ msgHash: msgHash, type: 'CHALLENGE', captchaImageBuffer: msgData['message'] })
             }
             else if(!amiowner && msgData['type'] == 'ownerSayHi' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
             //WE RECEIVED A USER LIST
@@ -438,7 +447,7 @@ export class PubSub {
               console.log('Got Channel Info: ',channelInfo);
                 this.setChannelParticipantList(channelInfo['channelParticipantList'],channel);
                 this.commitNow();
-                this.subs[channel].next({ type: 'ownerSayHi' });
+                this.subs[channel].next({ msgHash: msgHash, type: 'ownerSayHi' });
               }
               catch(error){
                 //fail silently
@@ -465,6 +474,10 @@ export class PubSub {
                 msg['self'] = true;
               }else{
                 msg['self'] = false;
+              }
+
+              if(typeof msgHash.length > 0){
+                msg['masgHash'] = msgHash;
               }
 
               this.channelHistory[channel].push(msg);
