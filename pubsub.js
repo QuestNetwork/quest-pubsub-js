@@ -9,9 +9,6 @@ import { NativeCrypto } from "@questnetwork/quest-crypto-js";
 
 
 
-function isInArray(value, array) {
-  return array.indexOf(value) > -1;
-}
 
 
 export class PubSub {
@@ -46,9 +43,6 @@ export class PubSub {
 
     }
 
-    isInArray(value, array) {
-     return array.indexOf(value) > -1;
-   }
 
    isSubscribed(channel){
      if(typeof(this.subs[channel]) != 'undefined'){
