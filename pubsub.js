@@ -700,15 +700,26 @@ export class PubSub {
          this.inviteCodes[channel]['items'] = [];
       }
 
-      if(this.inviteCodes[channel]['codes'].length > 20){
+      if(this.inviteCodes[channel]['links'].length > 10){
         this.inviteCodes[channel]['codes'] = {};
         this.inviteCodes[channel]['links'] = []
         this.inviteCodes[channel]['items'] = [];
       }
 
       this.inviteCodes[channel]['codes'][link] = code ;
-      this.inviteCodes[channel]['links'].push(  link  );
-      this.inviteCodes[channel]['items'].push({ max: newInviteCodeMax, used: 0, link: link, code:  code});
+
+      let links =  Object.keys(this.inviteCodes[channel]['codes']);
+      let linkBuf = [];
+      for(let thisLink of links){
+        if(linkBuf.indexOf(thisLink) === -1){
+          linkBuf.push(thisLink);
+        }
+      }
+
+      if(this.inviteCodes[channel]['links'].indexOf(link) === -1 && linkBuf.indexOf(link) > -1){
+        this.inviteCodes[channel]['links'].push(  link  );
+        this.inviteCodes[channel]['items'].push({ max: newInviteCodeMax, used: 0, link: link, code:  code});
+      }
 
       this.commitNow();
       return link;
