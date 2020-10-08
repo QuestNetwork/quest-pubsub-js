@@ -335,25 +335,31 @@ export class PubSub {
     }
 
     isAlive(channelPubKey){
-      if( this.utilities.inArray(this.alive,channelPubKey) ){
-        return true;
+      for(let ac of this.alive){
+        if( this.utilities.inArray(ac,channelPubKey) ){
+          return true;
+        }
+
+      }
+      for(let ah of this.aliveHistory){
+        if( this.utilities.inArray(ah.flat(),channelPubKey) ){
+          return true
+        }
       }
 
-      return this.utilities.inArray(this.aliveHistory.flat(),channelPubKey);
-    
+      return false;
     }
-
     async sendHeartbeat(transport,channel){
-        if(typeof this.aliveHistory[1] != 'undefined'){
-          this.aliveHistory[2] = this.aliveHistory[1];
+        if(typeof this.aliveHistory[channel][1] != 'undefined'){
+          this.aliveHistory[channel][2] = this.aliveHistory[1];
         }
         if(typeof this.aliveHistory[0] != 'undefined'){
-          this.aliveHistory[1] = this.aliveHistory[0];
+          this.aliveHistory[channel][1] = this.aliveHistory[0];
         }
 
-        this.aliveHistory[0] = JSON.parse(JSON.stringify(this.alive));
+        this.aliveHistory[channel][0] = JSON.parse(JSON.stringify(this.alive));
 
-        this.alive = [];
+        this.alive[channel] = [];
 
         console.log('quest-pubsub-js: Checking to send Heartbeat');
 
@@ -394,7 +400,7 @@ export class PubSub {
 
             // console.log('Signature:',signatureVerified);
             if(amiowner && msgData['type'] == "sayHi" && signatureVerified){
-              this.alive.push(msgData['channelPubKey']);
+              this.alive[msgData['channel']].push(msgData['channelPubKey']);
               //put together a message with all users whistleid timestamp, hash and sign message with pubkey
               if(this.isParticipant(channel, msgData['channelPubKey'])){
                 this.publish(transport,{ channel: msgData['channel'], type: "ownerSayHi", toChannelPubKey: msgData['channelPubKey'], message: JSON.stringify({channelParticipantList: this.getChannelParticipantList(channel) })});
@@ -479,7 +485,7 @@ export class PubSub {
             }
             else if(!amiowner && msgData['type'] == 'ownerSayHi' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
             //WE RECEIVED A USER LIST
-              this.alive.push(msgData['channelPubKey']);
+              this.alive[msgData['channel']].push(msgData['channelPubKey']);
 
               try{
               // decrypt the whistle with our pubKey
@@ -497,12 +503,10 @@ export class PubSub {
               }
             }
             else if( msgData['type'] == 'HEARTBEAT' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
-              this.alive.push(msgData['channelPubKey']);
-
-
+              this.alive[msgData['channel']].push(msgData['channelPubKey']);
             }
             else if(msgData['type'] == 'CHANNEL_MESSAGE' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
-              this.alive.push(msgData['channelPubKey']);
+              this.alive[msgData['channel']].push(msgData['channelPubKey']);
 
               this.DEVMODE && console.log('got message from:')
               this.DEVMODE && console.log('ipfsCID:',message.from)
@@ -533,7 +537,7 @@ export class PubSub {
               this.subs[channel].next(msg);
             }
             else if(msgData['type'] == 'SHARE_PUBLIC_SOCIAL' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
-              this.alive.push(msgData['channelPubKey']);
+              this.alive[msgData['channel']].push(msgData['channelPubKey']);
 
               console.log(msgData);
               let pubkey = this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']);
@@ -554,7 +558,7 @@ export class PubSub {
 
             }
             else if( (msgData['type'] == "REQUEST_FAVORITE" || msgData['type'] == 'SHARE_PRIVATE_SOCIAL') && this.isParticipant(channel, msgData['channelPubKey']) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified ){
-              this.alive.push(msgData['channelPubKey']);
+              this.alive[msgData['channel']].push(msgData['channelPubKey']);
 
               console.log('PubSub: Received Private Social or request favorite!');
 
@@ -601,7 +605,7 @@ export class PubSub {
 
             }
             else if(msgData['type'] == 'RECEIVED_SOCIAL' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
-              this.alive.push(msgData['channelPubKey']);
+              this.alive[msgData['channel']].push(msgData['channelPubKey']);
 
               //WE RECEIVED A READ RECEIPT
                 try{
