@@ -35,7 +35,7 @@ export class PubSub {
       this.channelConfig = {};
       this.incomingFavoriteRequestList = [];
 
-      this.heartbeatInterval = uVar;
+      this.heartbeatInterval = {};
       this.myLastHeartbeat = 0;
       this.alive = [];
       this.lastAlive = [];
@@ -342,30 +342,28 @@ export class PubSub {
       return false;
     }
 
-    sendHeartbeat(transport,channel){
+    async sendHeartbeat(transport,channel){
       this.lastAlive = JSON.parse(JSON.stringify(this.alive));
       this.alive = [];
 
       console.log('quest-pubsub-js: Checking to send Heartbeat');
 
-      if(this.myLastHeartbeat < new Date().getTime()-60*2){
+      // if(this.myLastHeartbeat < new Date().getTime()-60*2){
         //send heartbeat
         this.publish(transport,{ channel: channel, type: "HEARTBEAT", message: JSON.stringify({}) });
         this.myLastHeartbeat =  new Date().getTime();
-      }
+      // }
+      await this.utilities.delay(1000*60);
+      this.sendHeartbeat(transport,channel);
     }
 
     async channelSubscribe(transport,channel,amiowner){
         let peers = await transport.peers(channel);
         console.log('PubSub Peers:',peers);
 
-        this.heartbeatInterval = setInterval( () => {
-          this.sendHeartbeat(transport,channel);
-        },1000*60);
-
         setTimeout( () => {
           this.sendHeartbeat(transport,channel);
-        },5000);
+        },3000);
 
         transport.subscribe(channel, async(message) => {
 
