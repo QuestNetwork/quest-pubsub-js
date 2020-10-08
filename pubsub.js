@@ -338,7 +338,7 @@ export class PubSub {
       if( this.utilities.inArray(this.alive,channelPubKey) ){
         return true;
       }
-      for(let a of aliveHistory){
+      for(let a of this.aliveHistory){
         if(this.utilities.inArray(a,channelPubKey)){
           return true;
         }
