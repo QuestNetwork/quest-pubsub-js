@@ -335,14 +335,17 @@ export class PubSub {
     }
 
     isAlive(channelPubKey){
-      for(let ac of this.alive){
-        if( this.utilities.inArray(ac,channelPubKey) ){
+      let channels = Object.keys(this.alive);
+      for(let channel of channels){
+        if( this.utilities.inArray(this.alive[channel],channelPubKey) ){
           return true;
         }
 
       }
-      for(let ah of this.aliveHistory){
-        if( this.utilities.inArray(ah.flat(),channelPubKey) ){
+
+      channels = Object.keys(this.aliveHistory);
+      for(let channel of channels){
+        if( this.utilities.inArray(this.aliveHistory[channel].flat(),channelPubKey) ){
           return true
         }
       }
@@ -350,6 +353,11 @@ export class PubSub {
       return false;
     }
     async sendHeartbeat(transport,channel){
+      try{
+        if(typeof this.aliveHistory[channel] == 'undefined'){
+          this.aliveHistory[channel] = [];
+        }
+
         if(typeof this.aliveHistory[channel][1] != 'undefined'){
           this.aliveHistory[channel][2] = this.aliveHistory[1];
         }
@@ -368,6 +376,7 @@ export class PubSub {
         this.publish(transport,{ channel: channel, type: "HEARTBEAT", message: JSON.stringify({}) });
         this.myLastHeartbeat =  new Date().getTime();
       // }
+      }catch(e){}
       await this.utilities.delay(1000*60);
       this.sendHeartbeat(transport,channel);
     }
@@ -375,10 +384,10 @@ export class PubSub {
     async channelSubscribe(transport,channel,amiowner){
         let peers = await transport.peers(channel);
         console.log('PubSub Peers:',peers);
-
+        this.sendHeartbeat(transport,channel);
         setTimeout( () => {
           this.sendHeartbeat(transport,channel);
-        },3000);
+        },5000);
 
         transport.subscribe(channel, async(message) => {
 
