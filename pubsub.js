@@ -38,7 +38,7 @@ export class PubSub {
       this.heartbeatInterval = {};
       this.myLastHeartbeat = 0;
       this.alive = [];
-      this.lastAlive = [];
+      this.aliveHistory = [];
 
       this.socialProfiles = {};
       this.socialSharedWith = [];
@@ -335,20 +335,29 @@ export class PubSub {
     }
 
     isAlive(channelPubKey){
-      if(this.utilities.inArray(this.lastAlive,channelPubKey) || this.utilities.inArray(this.alive,channelPubKey)){
+      if( this.utilities.inArray(this.alive,channelPubKey) ){
         return true;
       }
-
+      for(let a of aliveHistory){
+        if(this.utilities.inArray(a,channelPubKey)){
+          return true;
+        }
+      }
       return false;
     }
 
     async sendHeartbeat(transport,channel){
-      this.lastAlive = JSON.parse(JSON.stringify(this.alive));
-      this.alive = [];
+        if(typeof this.aliveHistory[0] != 'undefined'){
+          this.aliveHistory[1] = this.aliveHistory[0];
+        }
 
-      console.log('quest-pubsub-js: Checking to send Heartbeat');
+        this.aliveHistory[0] = JSON.parse(JSON.stringify(this.alive));
 
-      // if(this.myLastHeartbeat < new Date().getTime()-60*2){
+        this.alive = [];
+
+        console.log('quest-pubsub-js: Checking to send Heartbeat');
+
+        // if(this.myLastHeartbeat < new Date().getTime()-60*2){
         //send heartbeat
         this.publish(transport,{ channel: channel, type: "HEARTBEAT", message: JSON.stringify({}) });
         this.myLastHeartbeat =  new Date().getTime();
