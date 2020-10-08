@@ -336,7 +336,7 @@ export class PubSub {
 
     isAlive(channelPubKey){
       let channels = Object.keys(this.alive);
-      console.log(channels);
+      // console.log(channels);
       for(let channel of channels){
         if( this.utilities.inArray(this.alive[channel],channelPubKey) ){
           return true;
@@ -345,7 +345,7 @@ export class PubSub {
       }
 
       channels = Object.keys(this.aliveHistory);
-      console.log(channels);
+      // console.log(channels);
       for(let channel of channels){
         if( this.utilities.inArray(this.aliveHistory[channel].flat(),channelPubKey) ){
           return true
@@ -387,7 +387,7 @@ export class PubSub {
     async channelSubscribe(transport,channel,amiowner){
         let peers = await transport.peers(channel);
         console.log('PubSub Peers:',peers);
-        this.sendHeartbeat(transport,channel);
+        this.alive[channel] = [];
         setTimeout( () => {
           this.sendHeartbeat(transport,channel);
         },5000);
