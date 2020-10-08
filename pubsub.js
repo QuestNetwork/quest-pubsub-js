@@ -6,13 +6,15 @@ import { Subject } from "rxjs";
 
 
 import { NativeCrypto } from "@questnetwork/quest-crypto-js";
-
-
-
+import { UtilitiesInstance } from "@questnetwork/quest-utilities-js";
 
 
 export class PubSub {
     constructor() {
+      this.utilities = new UtilitiesInstance();
+      this.crypto = new NativeCrypto();
+
+
       //in the future only handle one channel per instanciated class
       this.ipfsCID = "";
       this.subs = {};
@@ -31,11 +33,12 @@ export class PubSub {
       this.commitSub = new Subject();
       this.inviteCodes = {};
       this.channelConfig = {};
-
       this.incomingFavoriteRequestList = [];
 
-      this.crypto = new NativeCrypto();
-
+      this.heartbeatInterval = uVar;
+      this.myLastHeartbeat = 0;
+      this.alive = [];
+      this.lastAlive = [];
 
       this.socialProfiles = {};
       this.socialSharedWith = [];
@@ -331,11 +334,42 @@ export class PubSub {
       this.commitNowSub.next(true);
     }
 
+    isAlive(channelPubKey){
+      if(this.utilities.inArray(this.lastAlive,channelPubKey) || this.utilities.inArray(this.alive,channelPubKey)){
+        return true;
+      }
+
+      return false;
+    }
+
+    sendHeartbeat(transport,channel){
+      this.lastAlive = JSON.parse(JSON.stringify(this.alive));
+      this.alive = [];
+
+      console.log('quest-pubsub-js: Checking to send Heartbeat');
+
+      if(this.myLastHeartbeat < new Date().getTime()-60*2){
+        //send heartbeat
+        this.publish(transport,{ channel: channel, type: "HEARTBEAT", message: JSON.stringify({}) });
+        this.myLastHeartbeat =  new Date().getTime();
+      }
+    }
 
     async channelSubscribe(transport,channel,amiowner){
         let peers = await transport.peers(channel);
         console.log('PubSub Peers:',peers);
+
+        this.heartbeatInterval = setInterval( () => {
+          this.sendHeartbeat(transport,channel);
+        },1000*60);
+
+        setTimeout( () => {
+          this.sendHeartbeat(transport,channel);
+        },5000);
+
         transport.subscribe(channel, async(message) => {
+
+
           console.log('New message!',message);
             let msgData = JSON.parse(message.data.toString('utf8'));
             if(typeof msgData == 'string'){
@@ -351,10 +385,9 @@ export class PubSub {
 
             let signatureVerified = await this.verify(msgData);
 
-
-
             // console.log('Signature:',signatureVerified);
             if(amiowner && msgData['type'] == "sayHi" && signatureVerified){
+              this.alive.push(msgData['channelPubKey']);
               //put together a message with all users whistleid timestamp, hash and sign message with pubkey
               if(this.isParticipant(channel, msgData['channelPubKey'])){
                 this.publish(transport,{ channel: msgData['channel'], type: "ownerSayHi", toChannelPubKey: msgData['channelPubKey'], message: JSON.stringify({channelParticipantList: this.getChannelParticipantList(channel) })});
@@ -439,6 +472,8 @@ export class PubSub {
             }
             else if(!amiowner && msgData['type'] == 'ownerSayHi' && msgData['channelPubKey'] == this.getOwnerChannelPubKey(channel) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified){
             //WE RECEIVED A USER LIST
+              this.alive.push(msgData['channelPubKey']);
+
               try{
               // decrypt the whistle with our pubKey
               let whistle = await this.crypto.rsa.fullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
@@ -454,7 +489,14 @@ export class PubSub {
                 console.log(error);
               }
             }
+            else if( msgData['type'] == 'HEARTBEAT' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
+              this.alive.push(msgData['channelPubKey']);
+
+
+            }
             else if(msgData['type'] == 'CHANNEL_MESSAGE' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
+              this.alive.push(msgData['channelPubKey']);
+
               this.DEVMODE && console.log('got message from:')
               this.DEVMODE && console.log('ipfsCID:',message.from)
               this.DEVMODE && console.log('channelPubKey:',msgData['channelPubKey']);
@@ -484,6 +526,8 @@ export class PubSub {
               this.subs[channel].next(msg);
             }
             else if(msgData['type'] == 'SHARE_PUBLIC_SOCIAL' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
+              this.alive.push(msgData['channelPubKey']);
+
               console.log(msgData);
               let pubkey = this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']);
               let signedSocialObj = this.crypto.aes.decryptHex(msgData['message'],pubkey);
@@ -503,6 +547,8 @@ export class PubSub {
 
             }
             else if( (msgData['type'] == "REQUEST_FAVORITE" || msgData['type'] == 'SHARE_PRIVATE_SOCIAL') && this.isParticipant(channel, msgData['channelPubKey']) && msgData['toChannelPubKey'] == this.getChannelKeyChain(channel)['channelPubKey'] && signatureVerified ){
+              this.alive.push(msgData['channelPubKey']);
+
               console.log('PubSub: Received Private Social or request favorite!');
 
 
@@ -548,6 +594,8 @@ export class PubSub {
 
             }
             else if(msgData['type'] == 'RECEIVED_SOCIAL' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
+              this.alive.push(msgData['channelPubKey']);
+
               //WE RECEIVED A READ RECEIPT
                 try{
                 // decrypt the whistle with our pubKey
@@ -564,6 +612,9 @@ export class PubSub {
 
             }
         });
+
+
+
     }
 
 
