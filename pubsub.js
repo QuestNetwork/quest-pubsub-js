@@ -336,6 +336,7 @@ export class PubSub {
 
     isAlive(channelPubKey){
       let channels = Object.keys(this.alive);
+      console.log(channels);
       for(let channel of channels){
         if( this.utilities.inArray(this.alive[channel],channelPubKey) ){
           return true;
@@ -344,6 +345,7 @@ export class PubSub {
       }
 
       channels = Object.keys(this.aliveHistory);
+      console.log(channels);
       for(let channel of channels){
         if( this.utilities.inArray(this.aliveHistory[channel].flat(),channelPubKey) ){
           return true
@@ -366,7 +368,7 @@ export class PubSub {
           this.aliveHistory[channel][1] = this.aliveHistory[channel][0];
         }
 
-        this.aliveHistory[channel][0] = JSON.parse(JSON.stringify(this.alive));
+        this.aliveHistory[channel][0] = JSON.parse(JSON.stringify(this.alive[channel]));
 
         this.alive[channel] = [];
 
