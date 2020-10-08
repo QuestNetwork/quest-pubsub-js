@@ -338,15 +338,15 @@ export class PubSub {
       if( this.utilities.inArray(this.alive,channelPubKey) ){
         return true;
       }
-      for(let a of this.aliveHistory){
-        if(this.utilities.inArray(a,channelPubKey)){
-          return true;
-        }
-      }
-      return false;
+
+      return this.utilities.inArray(this.aliveHistory.flat(),channelPubKey);
+    
     }
 
     async sendHeartbeat(transport,channel){
+        if(typeof this.aliveHistory[1] != 'undefined'){
+          this.aliveHistory[2] = this.aliveHistory[1];
+        }
         if(typeof this.aliveHistory[0] != 'undefined'){
           this.aliveHistory[1] = this.aliveHistory[0];
         }
