@@ -354,15 +354,16 @@ export class PubSub {
     }
     async sendHeartbeat(transport,channel){
       try{
+        console.log('sending heartbeat in: ',channel);
         if(typeof this.aliveHistory[channel] == 'undefined'){
           this.aliveHistory[channel] = [];
         }
 
         if(typeof this.aliveHistory[channel][1] != 'undefined'){
-          this.aliveHistory[channel][2] = this.aliveHistory[1];
+          this.aliveHistory[channel][2] = this.aliveHistory[channel][1];
         }
-        if(typeof this.aliveHistory[0] != 'undefined'){
-          this.aliveHistory[channel][1] = this.aliveHistory[0];
+        if(typeof this.aliveHistory[channel][0] != 'undefined'){
+          this.aliveHistory[channel][1] = this.aliveHistory[channel][0];
         }
 
         this.aliveHistory[channel][0] = JSON.parse(JSON.stringify(this.alive));
