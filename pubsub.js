@@ -44,6 +44,8 @@ export class PubSub {
       this.socialSharedWith = [];
       this.socialLinks = {};
 
+      this.dev = false;
+
     }
 
 
@@ -162,26 +164,26 @@ export class PubSub {
     }
 
     setChannelKeyChain(keychain, channel = "all"){
-      console.log('PubSub setChannelKeyChain: ',channel);
-      console.log('PubSub setChannelKeyChain: ',keychain);
+      this.DEVMODE && console.log('PubSub setChannelKeyChain: ',channel);
+        this.DEVMODE && console.log('PubSub setChannelKeyChain: ',keychain);
 
       if(channel == "all"){
         this.DEVMODE && console.log('Replacing Global Keychain For All Channels...',keychain);
           this.channelKeyChain = keychain;
       }
       else{
-        console.log('Adding Channel Keychain...');
+          this.DEVMODE &&console.log('Adding Channel Keychain...');
         // console.loging('setting...',keychain);
         this.channelKeyChain[channel] = keychain;
       }
     }
     getChannelKeyChain(channel = 'all'){
-      console.log('Testing type of channelKeyChain...');
+        this.DEVMODE &&console.log('Testing type of channelKeyChain...');
       if(this.DEVMODE && channel == 'all'){
-        console.log(this.channelKeyChain);
+        this.DEVMODE &&  console.log(this.channelKeyChain);
       }
       else if(this.DEVMODE && channel != 'all'){
-        console.log(this.channelKeyChain[channel]);
+        this.DEVMODE &&  console.log(this.channelKeyChain[channel]);
       }
 
       if(typeof(this.channelKeyChain) == 'undefined'){
@@ -201,7 +203,7 @@ export class PubSub {
         return this.channelKeyChain;
       }
 
-      console.log('Retrieving channelKeyChain [0x200:'+channel+']...');
+      this.DEVMODE &&  console.log('Retrieving channelKeyChain [0x200:'+channel+']...');
       return this.channelKeyChain[channel];
     }
 
@@ -235,7 +237,7 @@ export class PubSub {
     async sign(obj){
       let keyChain = this.getChannelKeyChain(obj['channel']);
       let keyHex = keyChain['channelPrivKey'];
-      console.log("Crypto: Signing...")
+      this.DEVMODE &&  console.log("Crypto: Signing...")
       return await this.crypto.ec.sign(obj, keyChain['channelPrivKey']);
     }
 
@@ -280,29 +282,29 @@ export class PubSub {
         // this.ipfsCID =  this.ipfs.ipfsNode.id();
         // TODO: if channel doesn't exist create it first and become owner?
 
-        console.log('joining channel...');
+        console.log('Quest PubSub: Joining channel...');
         //Retrieve keys
         let channelKeyChain = {};
-        console.log('Getting channel keychain... [0x0200:'+channel+']')
+        this.DEVMODE &&  console.log('Getting channel keychain... [0x0200:'+channel+']')
         try{
-          console.log('Calling getChannelKeyChain... [0x0200:'+channel+']');
+            this.DEVMODE && console.log('Calling getChannelKeyChain... [0x0200:'+channel+']');
           channelKeyChain =  this.getChannelKeyChain(channel);
         }catch(e){
           if(e == 'undefined'){
             throw('fatal error - channelkeychain undefined [0x0200:'+channel+']');
           }
           //keychain is not set
-          console.log('No key chain found. Generating new keys... [0x0200:'+channel+']');
+           this.DEVMODE &&  console.log('No key chain found. Generating new keys... [0x0200:'+channel+']');
           channelKeyChain = await this.generateChannelKeyChain();
           this.DEVMODE && console.log(channelKeyChain);
           this.setChannelKeyChain(channelKeyChain,channel);
         }
 
-        console.log('Keychain start complete... [0x0200:'+channel+']');
+          this.DEVMODE && console.log('Keychain start complete... [0x0200:'+channel+']');
         let amiowner = false;
-        console.log('Testing owner status... [0x0200:'+channel+']');
+          this.DEVMODE && console.log('Testing owner status... [0x0200:'+channel+']');
         if(typeof(channelKeyChain) == 'undefined'){
-          console.log('E:KEYCHAIN_CORRUPT');
+        this.DEVMODE &&    console.log('E:KEYCHAIN_CORRUPT');
           return false;
         }
         if(typeof(channelKeyChain['channelPubKey']) != 'undefined'){
@@ -310,20 +312,20 @@ export class PubSub {
         }
 
         if(amiowner){
-          console.log('We are the owner! [0x0200:'+channel+']');
+          this.DEVMODE &&  console.log('We are the owner! [0x0200:'+channel+']');
           // TO DO this.publish({ channel: [0x0200:'+channel+']'channel, type: "opaqueSayHi", whistleID: this.whistle.getWhistleID(), timestamp });
         }
         else{
-          console.log('We are not the owner! SayingHi... [0x0200:'+channel+']');
+          this.DEVMODE &&  console.log('We are not the owner! SayingHi... [0x0200:'+channel+']');
           //we are going to announce our join, share our pubkey-chain and request the current participant list
           let pubObj = { channel: channel, type: "sayHi", toChannelPubKey: this.getOwnerChannelPubKey(channel), channelPubKey: channelKeyChain['channelPubKey'] };
           this.publish(transport,pubObj);
         }
 
-        console.log('Fetching Subscription... [0x0200:'+channel+']');
+        this.DEVMODE &&  console.log('Fetching Subscription... [0x0200:'+channel+']');
         this.subs[channel] = new Subject();
         this.channelHistory[channel] = [];
-        console.log('Subscribing... [0x0200:'+channel+']');
+        this.DEVMODE &&  console.log('Subscribing... [0x0200:'+channel+']');
         this.channelSubscribe(transport,channel,amiowner);
         console.log('Join Complete [0x0200:'+channel+']');
         resolve(true);
@@ -356,7 +358,7 @@ export class PubSub {
     }
     async sendHeartbeat(transport,channel){
       try{
-        console.log('sending heartbeat in: ',channel);
+        this.DEVMODE &&  console.log('sending heartbeat in: ',channel);
         if(typeof this.aliveHistory[channel] == 'undefined'){
           this.aliveHistory[channel] = [];
         }
@@ -372,7 +374,7 @@ export class PubSub {
 
         this.alive[channel] = [];
 
-        console.log('quest-pubsub-js: Checking to send Heartbeat');
+        this.DEVMODE &&  console.log('quest-pubsub-js: Checking to send Heartbeat');
 
         // if(this.myLastHeartbeat < new Date().getTime()-60*2){
         //send heartbeat
@@ -395,12 +397,12 @@ export class PubSub {
         transport.subscribe(channel, async(message) => {
 
 
-          console.log('New message!',message);
+          this.DEVMODE &&  console.log('New message!',message);
             let msgData = JSON.parse(message.data.toString('utf8'));
             if(typeof msgData == 'string'){
               msgData = JSON.parse(msgData);
             }
-             console.log(msgData);
+             console.log('New message!',msgData);
              // console.log('Verifying signature...');
 
              let msgHash = "";
@@ -420,9 +422,9 @@ export class PubSub {
               else{
                 //this is a new guy, maybe we should add them to the list? let's challenge them! you should customize this function!!!
                 //generate the captcha
-                console.log('qps:',this.getChallengeFlag(channel));
+              this.DEVMODE &&     console.log('qps:',this.getChallengeFlag(channel));
                 //TO DO: CHECK FOR UNUSED INVITE CODES FOR THIS CHANNEL
-                console.log('qps:',typeof this.inviteCodes[channel] == 'object' );
+                this.DEVMODE &&   console.log('qps:',typeof this.inviteCodes[channel] == 'object' );
                 if(this.getChallengeFlag(channel)){
                   console.log('challengeFlag activated');
                   let {captchaCode,captchaImageBuffer} = await qCaptcha.getCaptcha();
@@ -441,11 +443,11 @@ export class PubSub {
               let whistle = await this.crypto.rsa.fullDecrypt(msgData['whistle'],this.getChannelKeyChain(channel)['ownerPrivKey']);
               let response = await this.crypto.aes.decryptHex(msgData['response'],whistle);
 
-              console.log(response);
+            this.DEVMODE &&     console.log(response);
               if(typeof response == 'string'){
                 response = JSON.parse(response);
               }
-              console.log(response);
+            this.DEVMODE &&     console.log(response);
 
               if(typeof(this.captchaRetries[msgData['channelPubKey']]) == 'undefined'){
                 this.captchaRetries[msgData['channelPubKey']] = 1
@@ -458,9 +460,9 @@ export class PubSub {
               let challengeMastered = await this.verifyChallengeResponse(msgData['channel'], response['code'], msgData['channelPubKey']);
               if(challengeMastered){
                 //add the guy
-                console.log(msgData['channelPubKey']);
+                this.DEVMODE &&   console.log(msgData['channelPubKey']);
                 let newUserChannelPubKey = msgData['channelPubKey'];
-                console.log(response['pubKey']);
+              this.DEVMODE &&     console.log(response['pubKey']);
                 let newUserPubKey = response['pubKey'];
                 this.addChannelParticipant(msgData['channel'],newUserChannelPubKey,newUserPubKey);
                 let channelParticipantList =  this.getChannelParticipantList(msgData['channel']);
@@ -504,14 +506,14 @@ export class PubSub {
               let whistle = await this.crypto.rsa.fullDecrypt(msgData['whistle'], this.getChannelKeyChain(channel)['privKey']);
               let channelInfo = this.crypto.aes.decryptHex(msgData['message'],whistle);
               //decrypt the userlist
-              console.log('Got Channel Info: ',channelInfo);
+              this.DEVMODE &&   console.log('Got Channel Info: ',channelInfo);
                 this.setChannelParticipantList(channelInfo['channelParticipantList'],channel);
                 this.commitNow();
                 this.subs[channel].next({ msgHash: msgHash, type: 'ownerSayHi' });
               }
               catch(error){
                 //fail silently
-                console.log(error);
+              this.DEVMODE &&     console.log(error);
               }
             }
             else if( msgData['type'] == 'HEARTBEAT' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
@@ -551,13 +553,13 @@ export class PubSub {
             else if(msgData['type'] == 'SHARE_PUBLIC_SOCIAL' && this.isParticipant(channel, msgData['channelPubKey']) && signatureVerified){
               this.alive[msgData['channel']].push(msgData['channelPubKey']);
 
-              console.log(msgData);
+                this.DEVMODE && console.log(msgData);
               let pubkey = this.getPubKeyFromChannelPubKey(msgData['channel'],msgData['channelPubKey']);
               let signedSocialObj = this.crypto.aes.decryptHex(msgData['message'],pubkey);
-              console.log(signedSocialObj);
+              this.DEVMODE &&   console.log(signedSocialObj);
               let isVerified = await this.crypto.ec.verify(signedSocialObj,signedSocialObj['key']['pubKey']);
               if(isVerified){
-                console.log("PubSub: Received Social Profile ...",signedSocialObj)
+                this.DEVMODE &&   console.log("PubSub: Received Social Profile ...",signedSocialObj)
                 this.socialProfiles[signedSocialObj['key']['pubKey']] = signedSocialObj;
                 if(typeof this.socialLinks[msgData['channelPubKey']] == 'undefined'){
                   this.socialLinks[msgData['channelPubKey']] = []
@@ -612,7 +614,7 @@ export class PubSub {
               }
               catch(error){
                 //fail silently
-                console.log(error);
+                this.DEVMODE &&   console.log(error);
               }
 
             }
@@ -630,7 +632,7 @@ export class PubSub {
                 }
                 catch(error){
                   //fail silently
-                  console.log(error);
+                  this.DEVMODE &&   console.log(error);
                 }
 
             }
@@ -730,8 +732,8 @@ export class PubSub {
         let data = Buffer.from(dataString,'utf8');
         this.DEVMODE && console.log('Publishing message... [0x200]');
         try{
-          console.log('PubSub LS:',await transport.ls());
-          console.log('PubSub Channel: ',pubObj['channel']);
+          this.DEVMODE &&   console.log('PubSub LS:',await transport.ls());
+            this.DEVMODE && console.log('PubSub Channel: ',pubObj['channel']);
           let pubSubPeers = await transport.peers(pubObj['channel']);
           this.setPubSubPeers(pubSubPeers.length);
           console.log('PubSub Peers:',pubSubPeers);
