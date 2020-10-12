@@ -736,7 +736,7 @@ export class PubSub {
             this.DEVMODE && console.log('PubSub Channel: ',pubObj['channel']);
           let pubSubPeers = await transport.peers(pubObj['channel']);
           this.setPubSubPeers(pubSubPeers.length);
-          console.log('PubSub Peers:',pubSubPeers);
+          this.dev && console.log('PubSub Peers:',pubSubPeers);
           await transport.publish(pubObj['channel'], data);
           console.log('Successfully published message');
           resolve(true);
