@@ -120,7 +120,7 @@ export class PubSub {
       if(channel == 'all'){
         return this.channelParticipantList;
       }
-      if(typeof(this.channelParticipantList[channel]['cList']) != 'undefined' && typeof(this.channelParticipantList[channel]['pList']) != 'undefined'){
+      if(typeof this.channelParticipantList[channel] != 'undefined' && typeof(this.channelParticipantList[channel]['cList']) != 'undefined' && typeof(this.channelParticipantList[channel]['pList']) != 'undefined'){
         return this.channelParticipantList[channel];
       }
       else{
