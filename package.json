@@ -20,7 +20,7 @@
     "@questnetwork/quest-utilities-js": "../quest-utilities-js",
     "crypto-js": "^4.0.0",
     "rxjs": "6.6.3",
-    "uuid": "^8.2.0"
+    "uuid": "8.3.0"
   },
   "devDependencies": {
     "ava": "^3.10.1",
