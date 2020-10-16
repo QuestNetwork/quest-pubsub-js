@@ -44,6 +44,8 @@ export class PubSub {
       this.socialSharedWith = [];
       this.socialLinks = {};
 
+      this.transportCache = uVar;
+
       this.dev = false;
 
     }
@@ -275,11 +277,15 @@ export class PubSub {
       return array[index];
     }
 
+    sayHi(transport, channel){
+      let pubObj = { channel: channel, type: "sayHi", toChannelPubKey: this.getOwnerChannelPubKey(channel), channelPubKey: this.getChannelKeyChain(channel)['channelPubKey'] };
+      this.publish(transport,pubObj);
+    }
 
 
      joinChannel(transport,channel){
       return new Promise( async (resolve) => {
-        // this.ipfsCID =  this.ipfs.ipfsNode.id();
+        // this.ipfsCID =  this.ipfs.itransportCache = uVar;pfsNode.id();
         // TODO: if channel doesn't exist create it first and become owner?
 
         console.log('Quest PubSub: Joining channel...');
@@ -318,8 +324,7 @@ export class PubSub {
         else{
           this.DEVMODE &&  console.log('We are not the owner! SayingHi... [0x0200:'+channel+']');
           //we are going to announce our join, share our pubkey-chain and request the current participant list
-          let pubObj = { channel: channel, type: "sayHi", toChannelPubKey: this.getOwnerChannelPubKey(channel), channelPubKey: channelKeyChain['channelPubKey'] };
-          this.publish(transport,pubObj);
+          this.sayHi(transport,channel);
         }
 
         this.DEVMODE &&  console.log('Fetching Subscription... [0x0200:'+channel+']');
