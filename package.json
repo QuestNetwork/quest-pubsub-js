@@ -1,6 +1,6 @@
 {
   "name": "@questnetwork/quest-pubsub-js",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "license": "AGPL-3.0",
   "author": "StationedInTheField",
   "repository": {
@@ -19,7 +19,7 @@
     "@questnetwork/quest-crypto-js": "../quest-crypto-js",
     "@questnetwork/quest-utilities-js": "../quest-utilities-js",
     "crypto-js": "^4.0.0",
-    "rxjs": "6.6.3",
+    "rxjs": "6.5.5",
     "uuid": "8.3.0"
   },
   "devDependencies": {
