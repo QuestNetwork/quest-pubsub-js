@@ -32,8 +32,14 @@ Pro Tip: Put a file in your `/bin` that runs the quest-cli like so `node /path/t
 **0.9.4**
 - Online Status
 
+## Roadmap
+
+**0.9.5**
+ 
+- Use with [Quest Quorum JS](https://github.com/QuestNetwork/quest-quorum-js)
+
 ## Support Us
-This project is a lot of work and unfortunately we need to eat food (ツ)
+This project is a lot of work, help us to build a non-profit for it (ツ)
 
 | Ethereum| Bitcoin |
 |---|---|
