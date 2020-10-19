@@ -35,8 +35,8 @@ Pro Tip: Put a file in your `/bin` that runs the quest-cli like so `node /path/t
 ## Roadmap
 
 **0.9.5**
-
-- Build Assemblies And Run Quorums
+ 
+- Use with [Quest Quorum JS](https://github.com/QuestNetwork/quest-quorum-js)
 
 ## Support Us
 This project is a lot of work and unfortunately we need to eat food (ツ)
